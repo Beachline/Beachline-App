@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BeachLine">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>BeachLine™</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#06080D;color:#E2EAF4;font-family:'Trebuchet MS','Segoe UI',sans-serif;min-height:100vh;overflow-x:hidden}
+#app{max-width:460px;margin:0 auto;min-height:100vh}
+input,select,button,textarea{font-family:inherit;font-size:inherit}
+input[type=number]::-webkit-inner-spin-button{display:none}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:#1C2740;border-radius:2px}
+@keyframes fu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pop{from{opacity:0;transform:translateY(20px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
+.fu{animation:fu .28s ease both}
+.su{animation:su .3s ease}
+.inp{width:100%;background:#06080D;border:1.5px solid #1C2740;border-radius:12px;padding:13px 15px;color:#E2EAF4;font-size:15px;outline:none;display:block;margin-bottom:10px}
+.inp:focus{border-color:#C8A84B}
+.btn-gold{width:100%;background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:14px;padding:15px;color:#000;font-weight:800;font-size:16px;cursor:pointer}
+.card{background:#0B0F18;border:1px solid #1C2740;border-radius:14px;padding:16px;margin-bottom:10px;cursor:pointer;position:relative;overflow:hidden}
+.pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:#0B0F18;border-radius:20px 20px 0 0;width:100%;max-width:460px;padding:22px 20px 40px;max-height:92vh;overflow-y:auto}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:460px;background:#0B0F18;border-top:1px solid #1C2740;display:flex;z-index:30}
+.nav-btn{flex:1;background:none;border:none;padding:13px 0 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px}
+.handle{width:36px;height:4px;background:#1C2740;border-radius:2px;margin:0 auto 20px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.score-row{display:flex;gap:10px;margin-bottom:10px}
+.score-inp{flex:1;background:#06080D;border:1.5px solid #1C2740;border-radius:10px;padding:10px 6px;color:#E2EAF4;font-size:22px;font-weight:900;text-align:center;outline:none;max-width:120px}
+.rounds-row{overflow-x:auto;display:flex;gap:6px;padding-bottom:6px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px">
+    <div style="width:44px;height:44px;border:3px solid #1C2740;border-top:3px solid #C8A84B;border-radius:50%;animation:spin 1s linear infinite"></div>
+    <div style="color:#4A5A72;font-size:14px">BeachLine™</div>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+// ── FIREBASE CONFIG ──
+var firebaseConfig = {
+  apiKey: "AIzaSyCjdPskHa9HgsupJ7jnWLFoO21UOLeqMDg",
+  authDomain: "beachline-695cd.firebaseapp.com",
+  databaseURL: "https://beachline-695cd-default-rtdb.firebaseio.com",
+  projectId: "beachline-695cd",
+  storageBucket: "beachline-695cd.firebasestorage.app",
+  messagingSenderId: "92903336922",
+  appId: "1:92903336922:web:dc0451fd0e09ef1809eee3"
+};
+firebase.initializeApp(firebaseConfig);
+var fbdb = firebase.database();
+
+// ── STATE ──
+var _prevModal=null;
+var S={tab:'ranking',players:[],matches:[],tours:[],modal:null,sel:null,toast:null,tR:0,
+  np:{name:'',city:'',arena:'',gender:'',cat:'',photo:'',racketBrand:'',racketModel:'',bio:'',vitoriasAntes:'',titulosAntes:[],novoTitulo:'',bracoDominante:'',ladoJogo:''},
+  nm:{pA:'',pB:'',sA:'',sB:'',arena:'',date:td()},
+  nt:{name:'',arena:'',date:td(),endDate:'',format:'single',categoria:'masculino',criteria:'wins_first',numCourts:'1',numPlayers:'',numRounds:'',maxStages:'',topN:''},
+  se:{tid:'',rid:0,cid:'',mid:'',sA:'',sB:'',p1:'',p2:''},
+  tourSel:[],
+  rankCat:'',
+  bulkSel:[],
+  bulkMode:false,
+  tourBulk:[]
+};
+
+function td(){return new Date().toISOString().split('T')[0]}
+function uid(){return Math.random().toString(36).substr(2,9)}
+function save(k,v){
+  try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}
+  try{fbdb.ref(k).set(v)}catch(e){}
+}
+function load(k){try{var v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
+function set(upd){Object.assign(S,upd);render()}
+function setS(upd){Object.assign(S,upd)}
+
+// ── BLI ──
+function bli(pid,matches){
+  var now=Date.now();
+  return Math.round(matches.filter(function(m){return m.winnerId===pid}).reduce(function(s,m){
+    var d=(now-new Date(m.date).getTime())/86400000;
+    return s+100*(d>90?.4:d>30?.7:1);
+  },0));
+}
+function stats(pid,matches){
+  var pm=matches.filter(function(m){return m.pA===pid||m.pB===pid});
+  var w=pm.filter(function(m){return m.winnerId===pid}).length;
+  return{played:pm.length,wins:w,losses:pm.length-w,rate:pm.length>0?Math.round(w/pm.length*100):0};
+}
+function bliHist(pid,matches){
+  var s=matches.filter(function(m){return m.pA===pid||m.pB===pid}).sort(function(a,b){return new Date(a.date)-new Date(b.date)});
+  var r=[],d=[];s.forEach(function(m){r.push(m);d.push({v:bli(pid,r)})});return d;
+}
+
+// ── REI/RAINHA ──
+var RR_MISTA=[4,8,16,32];
+function validRR(n,cat,c){if(n<4)return false;if(cat==='mista')return RR_MISTA.indexOf(n)>=0;return Math.min(c,Math.floor(n/4))>=1}
+function optC(n,max){return Math.min(max,Math.floor(n/4))}
+function berger(active,r){
+  var n=active.length;if(n<4||n%4!==0)return[];
+  var wh=active.slice(1),st=r%(n-1);
+  var rot=wh.slice(st).concat(wh.slice(0,st));
+  var arr=[active[0]].concat(rot);
+  var pairs=[];for(var i=0;i<n/2;i++)pairs.push([arr[i],arr[n-1-i]]);
+  var cs=[];for(var c=0;c<n/4;c++)cs.push({id:uid(),t1:pairs[c*2],t2:pairs[c*2+1],sA:null,sB:null});
+  return cs;
+}
+// ── BERGER MISTO — garante sempre 1H+1M por equipe ──
+// Separa homens e mulheres, rotaciona parceiros por rodada
+// Rodada r: homem[i] joga com mulher[(i+r) % nMulheres]
+function bergerMista(men,women,r){
+  var half=men.length; // = women.length = n/2
+  var numCourts=half/2; // = n/4
+  // Pares da rodada: cada homem com uma mulher diferente
+  var pairs=men.map(function(m,i){
+    return[m,women[(i+r)%half]];
+  });
+  // Quadras: par[c] vs par[c+numCourts]
+  var courts=[];
+  for(var c=0;c<numCourts;c++){
+    courts.push({id:uid(),t1:pairs[c],t2:pairs[c+numCourts],sA:null,sB:null});
+  }
+  return courts;
+}
+
+function genSchedMista(pids,players,nrO){
+  var n=pids.length,half=n/2;
+  // Separa por gênero
+  var men=pids.filter(function(id){var p=players.find(function(p){return p.id===id});return p&&p.gender==='M'});
+  var women=pids.filter(function(id){var p=players.find(function(p){return p.id===id});return p&&p.gender==='F'});
+  var numR=nrO||half; // n/2 rodadas para rotação completa de parceiros
+  return Array.from({length:numR},function(_,r){
+    return{round:r+1,sitters:[],courts:bergerMista(men,women,r)};
+  });
+}
+
+function genSched(pids,nc,nrO){
+  var n=pids.length,c=optC(n,nc),play=c*4,sit=n-play;
+  if(sit===0){var mr=nrO||(n-1);return Array.from({length:mr},function(_,r){return{round:r+1,sitters:[],courts:berger(pids,r)}})}
+  var ls={},pl={};pids.forEach(function(p){ls[p]=-999;pl[p]=0});
+  var cy=Math.ceil(n/sit),nr=nrO||cy*3;
+  return Array.from({length:nr},function(_,r){
+    var sorted=pids.slice().sort(function(a,b){return ls[b]!==ls[a]?ls[b]-ls[a]:pl[a]-pl[b]});
+    var active=sorted.slice(0,play),sitters=sorted.slice(play);
+    var courts=berger(active,r);
+    active.forEach(function(p){pl[p]++});sitters.forEach(function(p){ls[p]=r});
+    return{round:r+1,sitters:sitters,courts:courts};
+  });
+}
+function calcSt(sched,pids,crit){
+  var all=sched.reduce(function(a,r){return a.concat(r.courts)},[]);
+  var st=pids.map(function(pid){
+    var mine=all.filter(function(c){return c.sA!==null&&(c.t1.indexOf(pid)>=0||c.t2.indexOf(pid)>=0)});
+    var w=0,gF=0,gA=0;
+    mine.forEach(function(c){var t1=c.t1.indexOf(pid)>=0;var my=t1?c.sA:c.sB,op=t1?c.sB:c.sA;if(my>op)w++;gF+=my||0;gA+=op||0});
+    return{pid:pid,played:mine.length,wins:w,losses:mine.length-w,gF:gF,gA:gA,saldo:gF-gA};
+  });
+  function h2h(a,b){
+    var d=all.filter(function(c){return c.sA!==null&&((c.t1.indexOf(a)>=0&&c.t2.indexOf(b)>=0)||(c.t1.indexOf(b)>=0&&c.t2.indexOf(a)>=0))});
+    var aw=0;d.forEach(function(c){var t1=c.t1.indexOf(a)>=0;if((t1?c.sA:c.sB)>(t1?c.sB:c.sA))aw++});
+    return aw-(d.length-aw);
+  }
+  return st.sort(function(a,b){var vd=b.wins-a.wins,sd=b.saldo-a.saldo;var p=crit==='saldo_first'?(sd||vd):(vd||sd);return p||h2h(b.pid,a.pid)});
+}
+
+
+// ══ RANKING CIRCUIT ENGINE ══
+var DEFAULT_POINTS = {1:100,2:70,3:50,4:35,5:20,6:20,7:20,8:20,9:10,10:10,11:10,12:10,13:10,14:10,15:10,16:10};
+var CAT_MULT = {'Pro':1.0,'A':0.8,'B':0.6,'C':0.4,'D':0.25,'Aberto':1.0,'Recreativo':1.0,'':1.0};
+
+function stagePoints(pos, cat) {
+  var base = DEFAULT_POINTS[pos] || (pos <= 32 ? 5 : 0);
+  return Math.round(base * (CAT_MULT[cat] || 1.0));
+}
+
+function getStageResults(stage) {
+  // Returns {pid: position} for finished stage
+  var results = {};
+  if (stage.format === 'rei_rainha' && stage.schedule) {
+    var st = calcSt(stage.schedule, stage.players || [], stage.criteria || 'wins_first');
+    st.forEach(function(s, i) { results[s.pid] = i + 1; });
+  } else if (stage.rounds) {
+    // Elimination: trace bracket positions
+    var last = stage.rounds[stage.rounds.length - 1];
+    if (!last) return results;
+    // Champion
+    if (stage.champion) results[stage.champion] = 1;
+    // Vice (loser of final)
+    if (last.matches && last.matches[0]) {
+      var finalist = last.matches[0];
+      var vice = finalist.winnerId === finalist.p1 ? finalist.p2 : finalist.p1;
+      if (vice) results[vice] = 2;
+    }
+    // 3rd/4th from semifinal losers
+    if (stage.rounds.length >= 2) {
+      var semis = stage.rounds[stage.rounds.length - 2];
+      var pos3 = 3;
+      if (semis && semis.matches) {
+        semis.matches.forEach(function(m) {
+          var loser = m.winnerId === m.p1 ? m.p2 : m.p1;
+          if (loser && !results[loser]) { results[loser] = pos3; pos3++; }
+        });
+      }
+    }
+    // Everyone else
+    (stage.players || []).forEach(function(pid) {
+      if (!results[pid]) results[pid] = 17; // participation
+    });
+  }
+  return results;
+}
+
+function calcCircuitStandings(circuit) {
+  var playerPts = {}, playerTitles = {}, playerVices = {}, playerPodiums = {};
+  (circuit.stages || []).forEach(function(stage) {
+    if (stage.status !== 'finished') return;
+    var results = stage.results || getStageResults(stage);
+    var cat = stage.cat || circuit.categoria || '';
+    Object.keys(results).forEach(function(pid) {
+      var pos = results[pid];
+      var pts = stagePoints(pos, cat);
+      playerPts[pid] = (playerPts[pid] || 0) + pts;
+      if (pos === 1) playerTitles[pid] = (playerTitles[pid] || 0) + 1;
+      if (pos === 2) playerVices[pid]  = (playerVices[pid]  || 0) + 1;
+      if (pos <= 3)  playerPodiums[pid]= (playerPodiums[pid]|| 0) + 1;
+    });
+  });
+  var allPids = {};
+  (circuit.stages || []).forEach(function(s) { (s.players||[]).forEach(function(p){allPids[p]=1;}); });
+  return Object.keys(allPids).map(function(pid) {
+    return {
+      pid:     pid,
+      points:  playerPts[pid]   || 0,
+      titles:  playerTitles[pid]|| 0,
+      vices:   playerVices[pid] || 0,
+      podiums: playerPodiums[pid]||0,
+      stages:  (circuit.stages||[]).filter(function(s){return (s.players||[]).includes(pid)}).length
+    };
+  }).sort(function(a,b) {
+    if (b.points  !== a.points)  return b.points  - a.points;
+    if (b.titles  !== a.titles)  return b.titles  - a.titles;  // 1° critério
+    if (b.vices   !== a.vices)   return b.vices   - a.vices;   // 2° critério
+    if (b.podiums !== a.podiums) return b.podiums - a.podiums; // 3° critério
+    return 0;
+  });
+}
+
+// ── BRACKET ──
+function npow2(n){var p=1;while(p<n)p*=2;return p}
+function genBracket(pids,matches){
+  var s=pids.slice().sort(function(a,b){return bli(b,matches)-bli(a,matches)});
+  var sz=npow2(s.length),pad=s.concat(Array(sz-s.length).fill(null));
+  var r1=Array.from({length:sz/2},function(_,i){var p1=pad[i],p2=pad[sz-1-i];return{id:uid(),p1:p1,p2:p2,winnerId:(!p1&&p2)?p2:(!p2&&p1)?p1:null,sA:null,sB:null}});
+  return[{round:1,name:'1ª Rodada',matches:r1}];
+}
+function advR(rounds){
+  var last=rounds[rounds.length-1];
+  if(!last.matches.every(function(m){return m.winnerId}))return rounds;
+  var w=last.matches.map(function(m){return m.winnerId}).filter(Boolean);
+  if(w.length===1)return rounds;
+  var rn=rounds.length+1,rname=rn>=5?'Final':rn===4?'Semifinal':rn===3?'Quartas':rn+'ª Rodada';
+  var nm=[];for(var i=0;i<w.length;i+=2)nm.push({id:uid(),p1:w[i],p2:w[i+1]||null,winnerId:w[i+1]?null:w[i],sA:null,sB:null});
+  return rounds.concat([{round:rn,name:rname,matches:nm}]);
+}
+
+// ── HELPERS ──
+function nm_(id){var p=S.players.find(function(p){return p.id===id});return p?esc(p.name):'?'}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function rank(){return S.players.map(function(p){return Object.assign({},p,{bli:bli(p.id,S.matches)},stats(p.id,S.matches))}).sort(function(a,b){return b.bli-a.bli})}
+function toast_(msg,c){set({toast:{msg:msg,c:c||'#22C55E'}});setTimeout(function(){set({toast:null})},2800)}
+function fmtSaldo(n){return(n>=0?'+':'')+n}
+
+// ── MINI CHART ──
+function miniChart(hist){
+  if(!hist||hist.length<2)return'';
+  var vals=hist.map(function(d){return d.v});
+  var mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals),rng=mx-mn||1;
+  var W=260,H=65,P=8;
+  var pts=vals.map(function(v,i){return[P+(i/(vals.length-1))*(W-P*2),H-P-((v-mn)/rng)*(H-P*2)]});
+  var poly=pts.map(function(p){return p.join(',')}).join(' ');
+  var last=pts[pts.length-1];
+  return '<svg width="100%" viewBox="0 0 '+W+' '+H+'" style="display:block"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#C8A84B" stop-opacity="0.3"/><stop offset="100%" stop-color="#C8A84B" stop-opacity="0"/></linearGradient></defs><polygon fill="url(#bg)" points="'+pts[0][0]+','+H+' '+poly+' '+last[0]+','+H+'"/><polyline fill="none" stroke="#C8A84B" stroke-width="2.5" stroke-linejoin="round" points="'+poly+'"/><circle cx="'+last[0]+'" cy="'+last[1]+'" r="4" fill="#C8A84B"/><text x="'+(last[0]+6)+'" y="'+(last[1]+4)+'" fill="#C8A84B" font-size="10" font-weight="bold">'+vals[vals.length-1]+'</text></svg>';
+}
+
+// ── RENDER ──
+function renderSheet(){
+  var sh=document.querySelector('.sheet');
+  if(!sh)return;
+  var st=sh.scrollTop;
+  var h=['<div class="handle"></div>'];
+  h.push('<button onclick="set({modal:null,tourSel:[]})" style="position:absolute;top:14px;left:20px;background:transparent;border:none;color:#4A5A72;font-size:22px;cursor:pointer;padding:4px">‹</button>');
+  if(S.modal==='player')h.push(renderModalPlayer());
+  if(S.modal==='match')h.push(renderModalMatch());
+  if(S.modal==='tc')h.push(renderModalTC());
+  if(S.modal==='tournament')h.push(renderModalTournament());
+  if(S.modal==='profile')h.push(renderModalProfile());
+  if(S.modal==='addStage')h.push(renderModalAddStage());
+    if(S.modal==='stage')h.push(renderModalStage());
+    if(S.modal==='editTour')h.push(renderModalEditTour());
+    if(S.modal==='editPlayer')h.push(renderModalEditPlayer());
+  sh.innerHTML=h.join('');
+  sh.scrollTop=st;
+}
+function setM(upd){Object.assign(S,upd);renderSheet()}
+
+function render(){
+  var _sy=window.scrollY;
+  var _sh=document.querySelector('.sheet');
+  var _ss=_sh?_sh.scrollTop:0;
+  var h=[];
+  h.push('<div style="background:#06080D;min-height:100vh;color:#E2EAF4">');
+
+  // TOAST
+  if(S.toast){
+    h.push('<div style="position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:'+S.toast.c+';color:#000;padding:12px 22px;border-radius:40px;font-weight:800;font-size:14px;z-index:300;animation:pop .3s ease;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.5)">'+esc(S.toast.msg)+'</div>');
+  }
+
+  // HEADER
+  h.push('<div style="padding:16px 20px 12px;border-bottom:1px solid #1C2740;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#06080D;z-index:20">');
+  h.push('<div style="display:flex;align-items:baseline;gap:2px"><span style="font-size:24px;font-weight:900;letter-spacing:-1.5px">Beach</span><span style="font-size:24px;font-weight:900;letter-spacing:-1.5px;color:#C8A84B">Line</span><span style="font-size:11px;color:#C8A84B;margin-left:1px">™</span></div>');
+  h.push('<div style="display:flex;gap:8px">');
+  h.push('<button onclick="openModal(\'tc\')" style="background:#161E2E;color:#C8A84B;border:1px solid #1C2740;border-radius:20px;padding:7px 13px;font-weight:700;font-size:12px;cursor:pointer">🏆 Torneio</button>');
+  h.push('<button onclick="openModal(\'match\')" style="background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:20px;padding:7px 15px;font-weight:800;font-size:12px;cursor:pointer;color:#000">+ Partida</button>');
+  h.push('</div></div>');
+
+  // CONTENT
+  h.push('<div style="padding:20px;padding-bottom:90px">');
+  if(S.tab==='ranking') h.push(renderRanking());
+  if(S.tab==='tournaments') h.push(renderTournaments());
+  if(S.tab==='players') h.push(renderPlayers());
+  h.push('</div>');
+
+  // NAV
+  h.push('<nav class="nav">');
+  [['ranking','📊','Ranking'],['circuitos','🏅','Circuitos'],['tournaments','🏆','Torneios'],['players','👥','Jogadores']].forEach(function(x){
+    var active=S.tab===x[0];
+    h.push('<button class="nav-btn" onclick="set({tab:\''+x[0]+'\',tR:0})" style="color:'+(active?'#C8A84B':'#4A5A72')+'"><span style="font-size:20px">'+x[1]+'</span><span style="font-size:10px;font-weight:700">'+x[2]+'</span></button>');
+  });
+  h.push('</nav>');
+
+  // MODAL
+  if(S.modal){
+    h.push('<div class="overlay" onclick="if(event.target===this)set({modal:null})">');
+    var _shAnim=(S.modal!==_prevModal)?'sheet su':'sheet';
+    _prevModal=S.modal;
+    h.push('<div class="'+_shAnim+'"><div class="handle"></div>');
+    h.push('<button onclick="set({modal:null,tourSel:[]})" style="position:absolute;top:14px;left:20px;background:transparent;border:none;color:#4A5A72;font-size:22px;cursor:pointer;padding:4px">‹</button>');
+    if(S.modal==='player') h.push(renderModalPlayer());
+    if(S.modal==='match') h.push(renderModalMatch());
+    if(S.modal==='tc') h.push(renderModalTC());
+    if(S.modal==='tournament') h.push(renderModalTournament());
+    if(S.modal==='profile') h.push(renderModalProfile());
+    if(S.modal==='addStage')h.push(renderModalAddStage());
+    if(S.modal==='stage')h.push(renderModalStage());
+    if(S.modal==='editTour')h.push(renderModalEditTour());
+    if(S.modal==='editPlayer') h.push(renderModalEditPlayer());
+
+    h.push('</div></div>');
+  }
+
+  h.push('</div>');
+  document.getElementById('app').innerHTML=h.join('');
+  window.scrollTo(0,_sy);
+  var _sh2=document.querySelector('.sheet');
+  if(_sh2)_sh2.scrollTop=_ss;
+}
+
+function openModal(m){set({modal:m})}
+
+// ── RANKING ──
+function renderRanking(){
+  var cats=['','Pro','A','B','C','D'];
+  var catLabels={'':'Todos','Pro':'Pró','A':'A','B':'B','C':'C','D':'D'};
+  var r=rank().filter(function(p){return!S.rankCat||p.cat===S.rankCat});
+  var h=[];
+  h.push('<div style="margin-bottom:14px"><div style="font-size:22px;font-weight:900;letter-spacing:-1px">Ranking BLI</div><div style="font-size:12px;color:#4A5A72;margin-top:3px">'+r.length+' jogadores</div></div>');
+  // Category filter pills
+  h.push('<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px">');
+  cats.forEach(function(c){
+    var active=S.rankCat===c;
+    h.push('<button onclick="set({rankCat:\''+c+'\',tR:0})" style="padding:5px 14px;border:1.5px solid '+(active?'#C8A84B':'#1C2740')+';border-radius:20px;background:'+(active?'rgba(200,168,75,.15)':'transparent')+';color:'+(active?'#C8A84B':'#4A5A72')+';font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">'+catLabels[c]+'</button>');
+  });
+  h.push('</div>');
+  if(!r.length){
+    h.push('<div style="text-align:center;padding:40px 20px"><div style="font-size:48px;margin-bottom:12px">🏖️</div><div style="font-weight:800;font-size:18px;margin-bottom:8px">Sem jogadores</div><div style="color:#4A5A72">Vá para Jogadores para começar</div></div>');
+    return h.join('');
+  }
+  var medals=['🥇','🥈','🥉'];
+  r.forEach(function(p,i){
+    var top=i===0;
+    h.push('<div class="card fu" onclick="selPlayer(\''+p.id+'\')" style="background:'+(top?'linear-gradient(135deg,#0B0F18,#130D00)':'#0B0F18')+';border-color:'+(top?'#5A3800':'#1C2740')+';animation-delay:'+(i*.05)+'s">');
+    if(top)h.push('<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(135deg,#C8A84B,#8A6020)"></div>');
+    h.push('<div style="display:flex;align-items:center;gap:14px">');
+    h.push('<div style="width:42px;text-align:center;flex-shrink:0;position:relative">'+(i<3?'<span style="font-size:22px;display:block;margin-bottom:-4px">'+medals[i]+'</span>':'')+(p.photo?'<img src="'+p.photo+'" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid '+(i===0?'#C8A84B':'#1C2740')+'">':'<div style="width:36px;height:36px;border-radius:50%;background:#161E2E;display:inline-flex;align-items:center;justify-content:center;font-size:16px">'+(p.gender==='F'?'👩':p.gender==='M'?'👨':'🎾')+'</div>')+(i>=3?'<div style="font-size:9px;color:#4A5A72;font-weight:700">#'+(i+1)+'</div>':'')+'</div>');
+    h.push('<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.name)+'</div><div style="font-size:12px;color:#4A5A72;margin-top:3px;display:flex;gap:8px;align-items:center"><span>'+(p.arena||p.city||'—')+'</span>'+(p.cat?'<span style="background:rgba(200,168,75,.2);color:#C8A84B;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700">'+(p.cat==='Pro'?'Pró':p.cat)+'</span>':'')+'<span style="color:#22C55E">✓'+p.wins+'</span><span style="color:#EF4444">✗'+p.losses+'</span></div></div>');
+    h.push('<div style="text-align:right;flex-shrink:0"><div style="font-size:22px;font-weight:900;color:#C8A84B">'+p.bli+'</div><div style="font-size:10px;color:#4A5A72">BLI</div></div>');
+    h.push('</div></div>');
+  });
+  return h.join('');
+}
+
+// ── TOURNAMENTS ──
+function renderCircuitos(){
+  var circuits=S.tours.filter(function(t){return t.format==="ranking"});
+  var h=[];
+  var catLabel={Pro:"Pró",A:"A",B:"B",C:"C",D:"D","":"Aberto",Recreativo:"Recreativo",Aberto:"Aberto"};
+  var medals=["🥇","🥈","🥉"];
+  h.push("<div style=\"margin-bottom:16px;display:flex;justify-content:space-between;align-items:center\">");
+  h.push("<div><div style=\"font-size:22px;font-weight:900;letter-spacing:-1px\">Circuitos</div>");
+  h.push("<div style=\"font-size:12px;color:#4A5A72;margin-top:3px\">"+(circuits.length)+" ativo"+(circuits.length!==1?"s":"")+" · tempo real 🔴</div></div>");
+  h.push("<button onclick=\"openModal('tc')\" style=\"background:rgba(255,215,0,.12);border:1px solid rgba(255,215,0,.3);border-radius:20px;padding:7px 12px;color:#FFD700;font-weight:700;font-size:12px;cursor:pointer\">+ Novo</button></div>");
+
+  if(!circuits.length){
+    h.push("<div style=\"text-align:center;padding:50px 20px\">");
+    h.push("<div style=\"font-size:52px;margin-bottom:12px\">🏅</div>");
+    h.push("<div style=\"font-weight:800;font-size:18px;margin-bottom:8px\">Nenhum circuito ativo</div>");
+    h.push("<div style=\"color:#4A5A72;font-size:14px;margin-bottom:20px\">Crie um circuito para acompanhar a pontuação em tempo real</div>");
+    h.push("<button onclick=\"openModal('tc')\" style=\"background:linear-gradient(135deg,#FFD700,#C8A84B);border:none;border-radius:20px;padding:10px 24px;color:#000;font-weight:800;font-size:14px;cursor:pointer\">Criar Circuito</button>");
+    h.push("</div>");
+    return h.join("");
+  }
+
+  circuits.forEach(function(circuit){
+    var standings=calcCircuitStandings(circuit);
+    var stages=circuit.stages||[];
+    var finished=stages.filter(function(s){return s.status==="finished"}).length;
+    var activeS=stages.filter(function(s){return s.status==="active"}).length;
+    var mult=CAT_MULT[circuit.categoria||""]||1.0;
+    var catName=catLabel[circuit.categoria||""]||"Aberto";
+
+    h.push("<div style=\"background:#0B0F18;border:1.5px solid rgba(255,215,0,.25);border-radius:16px;overflow:hidden;margin-bottom:20px\">");
+
+    // Header
+    h.push("<div style=\"background:linear-gradient(135deg,#1A1200,#0D0A00);padding:14px 16px;border-bottom:1px solid rgba(255,215,0,.15)\">");
+    h.push("<div style=\"display:flex;justify-content:space-between;align-items:flex-start\">");
+    h.push("<div><div style=\"font-size:17px;font-weight:900;color:#FFD700\">"+esc(circuit.name)+"</div>");
+    h.push("<div style=\"font-size:12px;color:#4A5A72;margin-top:3px\">🏅 "+catName+(circuit.endDate?" · até "+circuit.endDate:"")+"</div></div>");
+    h.push("<div style=\"text-align:right;flex-shrink:0\">");
+    h.push("<div style=\"font-size:11px;font-weight:700;color:"+(activeS>0?"#22C55E":"#4A5A72")+"\">"+(activeS>0?"🔴 AO VIVO":finished+" etapas")+"</div>");
+    h.push("<div style=\"font-size:10px;color:#4A5A72\">"+finished+"/"+stages.length+" concluídas</div></div></div>");
+    if(activeS>0){
+      var actS=stages.find(function(s){return s.status==="active"});
+      h.push("<div style=\"margin-top:8px;padding:6px 10px;background:rgba(34,197,94,.1);border-radius:8px;font-size:12px;color:#22C55E\">▶ Em andamento: <strong>"+esc(actS?actS.name:"")+"</strong></div>");
+    }
+    h.push("</div>");
+
+    // Points strip
+    h.push("<div style=\"background:#0D0B00;padding:8px 14px;display:flex;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,215,0,.08)\">");
+    h.push("<div style=\"font-size:10px;color:#4A5A72;font-weight:700;flex-shrink:0;align-self:center\">PONTOS:</div>");
+    [[1,"🥇",100],[2,"🥈",70],[3,"🥉",50],[4,"4°",35],[5,"5-8",20],[9,"9+",10]].forEach(function(row){
+      h.push("<div style=\"text-align:center;flex-shrink:0\"><div style=\"font-size:11px;color:#FFD700;font-weight:800\">"+Math.round(row[2]*mult)+"</div><div style=\"font-size:9px;color:#4A5A72\">"+row[1]+"</div></div>");
+    });
+    if(mult<1.0) h.push("<div style=\"font-size:9px;color:#4A5A72;align-self:center\">×"+mult+"</div>");
+    h.push("</div>");
+
+    // Standings
+    if(standings.length>0){
+      h.push("<div style=\"padding:12px 14px\">");
+      h.push("<div style=\"font-size:10px;color:#4A5A72;font-weight:700;margin-bottom:8px\">CLASSIFICAÇÃO — "+standings.length+" atleta"+(standings.length!==1?"s":"")+"</div>");
+      standings.slice(0,3).forEach(function(s,i){
+        var pp=S.players.find(function(p){return p.id===s.pid});
+        var bg=i===0?"linear-gradient(135deg,#1A1000,#2A1800)":"#161E2E";
+        var bd=i===0?"rgba(255,215,0,.4)":"#1C2740";
+        h.push("<div style=\"display:flex;align-items:center;gap:10px;padding:10px 12px;background:"+bg+";border-radius:10px;margin-bottom:5px;border:1px solid "+bd+"\">");
+        h.push("<div style=\"font-size:"+(i===0?22:17)+"px;width:26px;text-align:center;flex-shrink:0\">"+medals[i]+"</div>");
+        if(pp&&pp.photo){h.push("<img src=\""+pp.photo+"\" style=\"width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid "+(i===0?"#FFD700":"#1C2740")+"\">");}
+        else{h.push("<div style=\"width:32px;height:32px;border-radius:50%;background:#1C2740;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0\">"+(pp&&pp.gender==="F"?"👩":pp&&pp.gender==="M"?"👨":"🎾")+"</div>");}
+        h.push("<div style=\"flex:1;min-width:0\"><div style=\"font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\">"+(pp?esc(pp.name):"?")+"</div>");
+        h.push("<div style=\"font-size:10px;color:#4A5A72;margin-top:1px;display:flex;gap:6px\"><span>"+s.stages+" etap.</span>"+(s.titles>0?"<span style=\"color:#FFD700\">🏆"+s.titles+"</span>":"")+(s.vices>0?"<span style=\"color:#C0C0C0\">🥈"+s.vices+"</span>":"")+"</div>");
+        h.push("</div><div style=\"text-align:right;flex-shrink:0\"><div style=\"font-size:20px;font-weight:900;color:#FFD700\">"+s.points+"</div><div style=\"font-size:9px;color:#4A5A72\">pts</div></div>");
+        h.push("</div>");
+      });
+      if(standings.length>3){
+        h.push("<div style=\"margin-top:4px\">");
+        standings.slice(3).forEach(function(s,idx){
+          var pp=S.players.find(function(p){return p.id===s.pid});
+          h.push("<div style=\"display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #1C2740\">");
+          h.push("<div style=\"font-size:11px;color:#4A5A72;font-weight:700;width:22px;text-align:center\">"+(idx+4)+"°</div>");
+          h.push("<div style=\"flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\">"+(pp?esc(pp.name):"?")+"</div>");
+          if(s.titles>0) h.push("<span style=\"font-size:10px;color:#FFD700\">🏆"+s.titles+"</span>");
+          h.push("<div style=\"font-size:14px;font-weight:800;color:#C8A84B;min-width:36px;text-align:right\">"+s.points+"</div></div>");
+        });
+        h.push("</div>");
+      }
+      var lastF=stages.slice().reverse().find(function(s){return s.status==="finished"});
+      if(lastF&&lastF.champion){
+        h.push("<div style=\"margin-top:10px;padding:8px 10px;background:rgba(255,215,0,.05);border-radius:8px;display:flex;align-items:center;gap:8px\">");
+        h.push("<span>🏆</span><div style=\"flex:1\"><div style=\"font-size:10px;color:#4A5A72\">Última etapa: "+esc(lastF.name)+"</div>");
+        h.push("<div style=\"font-size:13px;font-weight:700;color:#FFD700\">"+nm_(lastF.champion)+"</div></div>");
+        h.push("<div style=\"font-size:11px;color:#4A5A72\">+"+stagePoints(1,lastF.cat||circuit.categoria||"")+"pts</div></div>");
+      }
+      h.push("</div>");
+    } else {
+      h.push("<div style=\"padding:20px;text-align:center;color:#4A5A72;font-size:13px\">Nenhuma etapa concluída ainda<br><span style=\"font-size:11px\">Inicie e finalize etapas para ver a classificação</span></div>");
+    }
+    h.push("<div data-cid=\""+circuit.id+"\" onclick=\"selTour(this.dataset.cid)\" style=\"padding:10px 16px;border-top:1px solid rgba(255,215,0,.1);text-align:center;cursor:pointer;color:#4A5A72;font-size:12px\">Gerenciar circuito →</div>");
+    h.push("</div>");
+  });
+  return h.join("");
+}
+
+function renderTournaments(){
+  var h=[];
+  h.push('<div style="margin-bottom:20px"><div style="font-size:22px;font-weight:900;letter-spacing:-1px">Torneios</div><div style="font-size:12px;color:#4A5A72;margin-top:3px">'+S.tours.length+' registrados</div></div>');
+  if(!S.tours.length){
+    h.push('<div style="text-align:center;padding:40px 20px"><div style="font-size:48px;margin-bottom:12px">🏆</div><div style="font-weight:800;font-size:18px;margin-bottom:16px">Sem torneios</div><button onclick="openModal(\'tc\')" class="btn-gold" style="width:auto;padding:10px 24px;border-radius:20px;font-size:14px">Criar torneio</button></div>');
+    return h.join('');
+  }
+  var tours=S.tours.slice().reverse();
+  tours.forEach(function(t){
+    var isRR=t.format==='rei_rainha';
+    var statusColor=t.status==='finished'?'#C8A84B':t.status==='active'?'#22C55E':'#4A5A72';
+    var statusLabel=t.status==='finished'?'Finalizado':t.status==='active'?'Ativo':'Inscrições';
+    h.push('<div class="card fu" onclick="selTour(\''+t.id+'\')">');
+    h.push('<div style="display:flex;justify-content:space-between;align-items:flex-start">');
+    h.push('<div style="flex:1"><div style="font-weight:800;font-size:16px">'+esc(t.name)+'</div><div style="font-size:12px;color:#4A5A72;margin-top:3px">'+(t.arena||'—')+' · '+t.date+'</div>');
+    h.push('<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">');
+    var isRanking=t.format==='ranking';h.push('<span class="pill" style="background:'+(isRanking?'rgba(255,215,0,.12)':isRR?'#A855F722':'#161E2E')+';color:'+(isRanking?'#FFD700':isRR?'#A855F7':'#4A5A72')+'">'+(isRanking?'🏅 Circuito':isRR?'👑 Rei/Rainha':'🏆 Eliminação')+'</span>');
+    h.push('<span class="pill" style="background:'+(t.status==='finished'?'#5A380033':'#161E2E')+';color:'+statusColor+'">'+statusLabel+'</span>');
+    h.push('</div></div>');
+    h.push('<div style="text-align:right;flex-shrink:0;margin-left:8px"><div style="font-size:22px;font-weight:900;color:#C8A84B">'+((t.players&&t.players.length)||0)+'</div><div style="font-size:10px;color:#4A5A72">jog.</div></div>');
+    h.push('</div>');
+    if(t.champion)h.push('<div style="margin-top:10px;padding:8px 12px;background:rgba(200,168,75,.1);border-radius:8px;font-size:13px;color:#C8A84B;font-weight:700">'+(isRR?'👑':'🏆')+' '+nm_(t.champion)+'</div>');
+    h.push('</div>');
+  });
+  return h.join('');
+}
+
+// ── PLAYERS ──
+function renderPlayers(){
+  var h=[];
+  h.push('<div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:22px;font-weight:900;letter-spacing:-1px">Jogadores</div><div style="font-size:12px;color:#4A5A72;margin-top:3px">'+S.players.length+' cadastrados</div></div><div style="display:flex;gap:6px"><button onclick="set({bulkMode:!S.bulkMode,bulkSel:[]})" style="background:transparent;border:1px solid #1C2740;border-radius:20px;padding:7px 12px;color:#4A5A72;font-weight:700;font-size:12px;cursor:pointer">'+(S.bulkMode?'Cancelar':'Selecionar')+'</button><button onclick="openModal(\'player\')" style="background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:20px;padding:7px 14px;color:#000;font-weight:800;font-size:12px;cursor:pointer">+ Novo</button></div></div>');
+  if(S.bulkMode&&S.bulkSel.length>0){
+    h.push('<div style="display:flex;gap:8px;margin-bottom:12px"><button onclick="bulkDeletePlayers()" style="flex:1;padding:10px;background:#EF4444;border:none;border-radius:10px;color:#fff;font-weight:800;font-size:13px;cursor:pointer">🗑 Excluir '+S.bulkSel.length+' selecionado'+(S.bulkSel.length>1?'s':'')+'</button></div>');
+  }
+  if(!S.players.length){
+    h.push('<div style="text-align:center;padding:40px 20px"><div style="font-size:48px;margin-bottom:12px">👤</div><div style="font-weight:800;font-size:18px;margin-bottom:16px">Sem jogadores</div><button onclick="openModal(\'player\')" class="btn-gold" style="width:auto;padding:10px 24px;border-radius:20px;font-size:14px">Cadastrar</button></div>');
+    return h.join('');
+  }
+  S.players.slice().reverse().forEach(function(p){
+    var icon=p.gender==='M'?'👨':p.gender==='F'?'👩':'🎾';
+    var isBulkSel=S.bulkSel.indexOf(p.id)>=0;
+    h.push('<div class="card fu" onclick="'+(S.bulkMode?'toggleBulkSel(\''+p.id+'\')':'selPlayer(\''+p.id+'\')')+'" style="display:flex;gap:12px;align-items:center;border-color:'+(isBulkSel?'#EF4444':'#1C2740')+'">');
+    if(S.bulkMode){h.push('<div style="width:22px;height:22px;border-radius:50%;border:2px solid '+(isBulkSel?'#EF4444':'#4A5A72')+';background:'+(isBulkSel?'#EF4444':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(isBulkSel?'<span style="color:#fff;font-size:12px;font-weight:900">✓</span>':'')+'</div>');}
+    else if(p.photo){h.push('<img src="'+p.photo+'" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #1C2740">');}
+    else{h.push('<div style="width:40px;height:40px;border-radius:50%;background:#161E2E;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+icon+'</div>');}
+    h.push('<div style="flex:1;min-width:0"><div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.name)+'</div><div style="font-size:12px;color:#4A5A72">'+(p.arena||p.city||'—')+(p.gender?' · '+p.gender:'')+(p.cat?' · '+(p.cat==='Pro'?'Pró':p.cat):'')+'</div></div>');
+    h.push('<div style="font-size:16px;font-weight:800;color:#C8A84B;flex-shrink:0">'+bli(p.id,S.matches)+' BLI</div>');
+    h.push('</div>');
+  });
+  return h.join('');
+}
+
+// ── MODAL: PLAYER ──
+function renderModalPlayer(){
+  var np=S.np;
+  return '<div style="font-size:20px;font-weight:800;margin-bottom:20px">Novo Jogador</div>'+
+    '<div style="margin-bottom:16px">'+
+    '<div style="font-size:12px;color:#4A5A72;font-weight:700;margin-bottom:8px">FOTO</div>'+
+    '<div onclick="document.getElementById(\'photo-inp\').click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:12px;background:#161E2E;border-radius:12px;border:1.5px dashed #1C2740">'+
+      '<div id="photo-placeholder" style="'+(np.photo?'display:none':'')+'width:64px;height:64px;border-radius:50%;background:#1C2740;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📷</div>'+
+      (np.photo?'<img id="photo-preview" src="'+np.photo+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0">':'<img id="photo-preview" src="" style="display:none;width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0">')+
+      '<div style="color:#4A5A72;font-size:13px">'+(np.photo?'Foto carregada ✓ — toque para trocar':'Toque para adicionar foto')+'</div>'+
+    '</div>'+
+    '<input id="photo-inp" type="file" accept="image/*" style="display:none" onchange="handlePhoto(this)">'+
+  '</div>'+
+    '<input class="inp" placeholder="Nome *" value="'+esc(np.name)+'" oninput="updNp(\'name\',this.value)"/>'+
+    '<input class="inp" placeholder="Arena / Clube" value="'+esc(np.arena)+'" oninput="updNp(\'arena\',this.value)"/>'+
+    '<input class="inp" placeholder="Cidade" value="'+esc(np.city)+'" oninput="updNp(\'city\',this.value)"/>'+
+    '<select class="inp" onchange="updNp(\'gender\',this.value)"><option value=""'+(np.gender===''?' selected':'')+'>Gênero (opcional)</option><option value="M"'+(np.gender==='M'?' selected':'')+'>Masculino</option><option value="F"'+(np.gender==='F'?' selected':'')+'>Feminino</option></select>'+
+    '<div style="font-size:11px;color:#4A5A72;margin:-4px 0 10px">Obrigatório para Rei/Rainha Mista</div>'+
+    '<select class="inp" onchange="updNp(\'cat\',this.value)">'+
+      '<option value=""'+(np.cat===''?' selected':'')+'>Categoria (opcional)</option>'+
+      '<option value="Pro"'+(np.cat==='Pro'?' selected':'')+'>Pró</option>'+
+      '<option value="A"'+(np.cat==='A'?' selected':'')+'>A</option>'+
+      '<option value="B"'+(np.cat==='B'?' selected':'')+'>B</option>'+
+      '<option value="C"'+(np.cat==='C'?' selected':'')+'>C</option>'+
+      '<option value="D"'+(np.cat==='D'?' selected':'')+'>D</option>'+
+    '</select>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0">'+
+    '<select class="inp" style="margin:0" onchange="updNp(\'bracoDominante\',this.value)">'+
+      '<option value=""'+(np.bracoDominante===''?' selected':'')+'>Braço dominante</option>'+
+      '<option value="Destro"'+(np.bracoDominante==='Destro'?' selected':'')+'>Destro</option>'+
+      '<option value="Canhoto"'+(np.bracoDominante==='Canhoto'?' selected':'')+'>Canhoto</option>'+
+      '<option value="Ambidestro"'+(np.bracoDominante==='Ambidestro'?' selected':'')+'>Ambidestro</option>'+
+    '</select>'+
+    '<select class="inp" style="margin:0" onchange="updNp(\'ladoJogo\',this.value)">'+
+      '<option value=""'+(np.ladoJogo===''?' selected':'')+'>Lado que joga</option>'+
+      '<option value="Direita"'+(np.ladoJogo==='Direita'?' selected':'')+'>Direita</option>'+
+      '<option value="Esquerda"'+(np.ladoJogo==='Esquerda'?' selected':'')+'>Esquerda</option>'+
+    '</select>'+
+  '</div>'+
+
+    '<input class="inp" placeholder="Marca da raquete" value="'+esc(np.racketBrand)+'" oninput="updNp(\'racketBrand\',this.value)"/>'+
+    '<input class="inp" placeholder="Modelo da raquete" value="'+esc(np.racketModel)+'" oninput="updNp(\'racketModel\',this.value)"/>'+
+    '<textarea class="inp" placeholder="Bio / apresentação" rows="3" oninput="updNp(\'bio\',this.value)" style="resize:none;height:80px">'+esc(np.bio)+'</textarea>'+
+
+    // Títulos list
+    '<div style="background:#161E2E;border-radius:12px;padding:12px;margin-bottom:10px">'+
+    '<div style="font-size:11px;color:#4A5A72;font-weight:700;margin-bottom:8px">TÍTULOS ANTERIORES</div>'+
+    (function(){var t=Array.isArray(np.titulosAntes)?np.titulosAntes:[];var r='';t.forEach(function(title,i){r+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#06080D;border-radius:6px;margin-bottom:4px"><span style="font-size:12px;color:#E2EAF4">🏆 '+esc(title)+'</span><button onclick="removeTitle('+i+')" style="background:transparent;border:none;color:#EF4444;cursor:pointer;font-size:14px;padding:0 4px">×</button></div>';});return r;})()+ 
+    '<div style="display:flex;gap:6px;margin-top:4px">'+
+      '<input id="novo-titulo" class="inp" placeholder="Ex: Campeão Cat. B 2023" value="'+esc(np.novoTitulo||'')+'" style="margin:0;flex:1" oninput="updNp(\'novoTitulo\',this.value)" onkeydown="if(event.key===\'Enter\'){addTitle();event.preventDefault()}"/>'+
+      '<button onclick="addTitle()" style="padding:0 14px;background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:10px;color:#000;font-weight:800;cursor:pointer;font-size:18px">+</button>'+
+    '</div>'+
+    '</div>'+
+    '<div style="height:10px"></div>'+
+    '<button class="btn-gold" onclick="addPlayer()">Cadastrar</button>';
+}
+function updNp(k,v){S.np[k]=v}
+function addPlayer(){
+  var np=S.np;if(!np.name.trim())return;
+  var p={id:uid(),name:np.name.trim(),city:np.city.trim(),arena:np.arena.trim(),gender:np.gender||'',cat:np.cat||'',photo:np.photo||'',racketBrand:np.racketBrand||'',racketModel:np.racketModel||'',bio:np.bio||'',vitoriasAntes:parseInt(np.vitoriasAntes)||0,titulosAntes:Array.isArray(np.titulosAntes)?np.titulosAntes:[],bracoDominante:np.bracoDominante||'',ladoJogo:np.ladoJogo||'',joined:new Date().toISOString()};
+  var u=S.players.concat([p]);save('bl_p',u);
+  set({players:u,np:{name:'',city:'',arena:'',gender:'',cat:'',photo:'',racketBrand:'',racketModel:'',bio:'',vitoriasAntes:'',titulosAntes:[],novoTitulo:'',bracoDominante:'',ladoJogo:''},modal:null});
+  toast_(p.name+' cadastrado! 🏖️');
+}
+
+// ── MODAL: MATCH ──
+function renderModalMatch(){
+  var nm=S.nm;
+  var opts_a=S.players.filter(function(p){return p.id!==nm.pB}).map(function(p){return'<option value="'+p.id+'"'+(nm.pA===p.id?' selected':'')+'>'+esc(p.name)+'</option>'}).join('');
+  var opts_b=S.players.filter(function(p){return p.id!==nm.pA}).map(function(p){return'<option value="'+p.id+'"'+(nm.pB===p.id?' selected':'')+'>'+esc(p.name)+'</option>'}).join('');
+  return '<div style="font-size:20px;font-weight:800;margin-bottom:20px">Nova Partida</div>'+
+    '<select class="inp" onchange="updNm(\'pA\',this.value)"><option value="">Jogador A</option>'+opts_a+'</select>'+
+    '<select class="inp" onchange="updNm(\'pB\',this.value)"><option value="">Jogador B</option>'+opts_b+'</select>'+
+    '<div class="score-row"><input class="score-inp" type="number" placeholder="0" value="'+esc(nm.sA)+'" oninput="updNm(\'sA\',this.value)"><input class="score-inp" type="number" placeholder="0" value="'+esc(nm.sB)+'" oninput="updNm(\'sB\',this.value)"></div>'+
+    '<input class="inp" placeholder="Arena" value="'+esc(nm.arena)+'" oninput="updNm(\'arena\',this.value)"/>'+
+    '<input class="inp" type="date" value="'+nm.date+'" onchange="updNm(\'date\',this.value)"/>'+
+    '<button class="btn-gold" onclick="addMatch()">Registrar</button>';
+}
+function updNm(k,v){S.nm[k]=v}
+function addMatch(){
+  var nm=S.nm;
+  if(!nm.pA||!nm.pB||nm.pA===nm.pB||!nm.sA||!nm.sB)return;
+  var sA=parseInt(nm.sA),sB=parseInt(nm.sB);
+  if(sA===sB){toast_('Sem empate em beach tennis','#EF4444');return}
+  var m={id:uid(),pA:nm.pA,pB:nm.pB,sA:sA,sB:sB,winnerId:sA>sB?nm.pA:nm.pB,arena:nm.arena,date:nm.date,created:new Date().toISOString(),type:'friendly'};
+  var u=S.matches.concat([m]);save('bl_m',u);
+  set({matches:u,nm:{pA:'',pB:'',sA:'',sB:'',arena:'',date:td()},modal:null});
+  toast_('Vitória de '+S.players.find(function(p){return p.id===m.winnerId}).name+'! 🎾');
+}
+
+// ── MODAL: CREATE TOURNAMENT ──
+function renderModalTC(){
+  var nt=S.nt,h=[];
+  h.push('<div style="font-size:20px;font-weight:800;margin-bottom:20px">Novo Torneio</div>');
+  h.push('<input class="inp" placeholder="Nome *" value="'+esc(nt.name)+'" oninput="updNt(\'name\',this.value)"/>');
+  h.push('<input class="inp" placeholder="Arena" value="'+esc(nt.arena)+'" oninput="updNt(\'arena\',this.value)"/>');
+  h.push('<input class="inp" type="date" value="'+nt.date+'" onchange="updNt(\'date\',this.value)"/>');
+  h.push('<div style="font-size:12px;color:#4A5A72;margin-bottom:6px;font-weight:700">FORMATO</div>');
+  h.push('<div class="grid2">');
+  [['single','🏆 Eliminação'],['rei_rainha','👑 Rei/Rainha'],['ranking','🏅 Circuito/Ranking']].forEach(function(x){
+    var active=nt.format===x[0];
+    h.push('<button onclick="updNt(\'format\',\''+x[0]+'\')" style="padding:12px 8px;border:1.5px solid '+(active?'#C8A84B':'#1C2740')+';border-radius:10px;background:'+(active?'rgba(200,168,75,.1)':'#161E2E')+';color:'+(active?'#C8A84B':'#4A5A72')+';cursor:pointer;font-weight:700;font-size:13px">'+x[1]+'</button>');
+  });
+  h.push('</div>');
+  if(nt.format==='rei_rainha'){
+    h.push('<div style="font-size:12px;color:#4A5A72;margin-bottom:6px;font-weight:700">CATEGORIA</div>');
+    h.push('<div class="grid3">');
+    [['masculino','♂ Masc'],['feminino','♀ Fem'],['mista','⚤ Mista']].forEach(function(x){
+      var active=nt.categoria===x[0];
+      h.push('<button onclick="updNt(\'categoria\',\''+x[0]+'\')" style="padding:10px 4px;border:1.5px solid '+(active?'#38BDF8':'#1C2740')+';border-radius:10px;background:'+(active?'rgba(56,189,248,.1)':'#161E2E')+';color:'+(active?'#38BDF8':'#4A5A72')+';cursor:pointer;font-weight:700;font-size:12px">'+x[1]+'</button>');
+    });
+    h.push('</div>');
+    h.push('<div class="grid2">');
+    h.push('<div><div style="font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700">JOGADORES</div><input class="inp" type="number" min="4" placeholder="Ex: 10" value="'+esc(nt.numPlayers)+'" style="text-align:center;font-weight:900;font-size:22px;margin:0" oninput="updNt(\'numPlayers\',this.value)"/></div>');
+    h.push('<div><div style="font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700">QUADRAS</div><input class="inp" type="number" min="1" placeholder="Ex: 2" value="'+esc(nt.numCourts)+'" style="text-align:center;font-weight:900;font-size:22px;margin:0" oninput="updNt(\'numCourts\',this.value)"/></div>');
+    h.push('</div>');
+    var n=parseInt(nt.numPlayers)||0,c=parseInt(nt.numCourts)||1;
+    h.push('<div id="calc-preview"></div>');
+    if(n>=4){updateCalc()}
+    h.push('<div style="font-size:12px;color:#4A5A72;margin-bottom:6px;font-weight:700">CRITÉRIO</div>');
+    [['wins_first','Vitórias → Saldo → Confronto'],['saldo_first','Saldo → Vitórias → Confronto']].forEach(function(x){
+      var active=nt.criteria===x[0];
+      h.push('<button onclick="updNt(\'criteria\',\''+x[0]+'\')" style="width:100%;padding:11px;margin-bottom:8px;border:1.5px solid '+(active?'#C8A84B':'#1C2740')+';border-radius:10px;background:'+(active?'rgba(200,168,75,.1)':'#161E2E')+';color:'+(active?'#C8A84B':'#4A5A72')+';cursor:pointer;font-weight:700;font-size:13px;text-align:left">'+(active?'✓ ':'')+x[1]+'</button>');
+    });
+  }
+  if(nt.format==='ranking'){
+    h.push('<div style="background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:12px;margin-bottom:14px">');
+    h.push('<div style="font-size:12px;color:#FFD700;font-weight:700;margin-bottom:6px">🏅 CIRCUITO / RANKING</div>');
+    h.push('<div style="font-size:12px;color:#4A5A72;line-height:1.6">Torneio com múltiplas etapas · Pontuação acumulativa · Campeões por etapa e geral</div>');
+    h.push('</div>');
+    h.push('<div class="grid2">');
+    h.push('<div><div style="font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700">DATA INÍCIO</div><input class="inp" type="date" value="'+nt.date+'" style="margin:0" onchange="updNt(\'date\',this.value)"/></div>');
+    h.push('<div><div style="font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700">DATA FIM</div><input class="inp" type="date" value="'+(nt.endDate||'')+'" style="margin:0" onchange="updNt(\'endDate\',this.value)"/></div>');
+    h.push('</div>');
+    h.push('<div style="font-size:12px;color:#4A5A72;margin-bottom:6px;font-weight:700">CATEGORIA DO CIRCUITO</div>');
+    h.push('<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">');
+    [['','Aberto / Todas'],['Recreativo','Recreativo'],['Pro','Pró'],['A','A'],['B','B'],['C','C'],['D','D']].forEach(function(x){
+      var active=nt.categoria===x[0];
+      h.push('<button onclick="updNt(\'categoria\',\''+x[0]+'\')" style="padding:6px 14px;border:1.5px solid '+(active?'#FFD700':'#1C2740')+';border-radius:20px;background:'+(active?'rgba(255,215,0,.12)':'transparent')+';color:'+(active?'#FFD700':'#4A5A72')+';cursor:pointer;font-weight:700;font-size:13px">'+x[1]+'</button>');
+    });
+    h.push('</div>');
+    h.push('<div class="grid2">');
+    h.push('<div><div style="font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700">MAX ETAPAS (opcional)</div><input class="inp" type="number" min="1" placeholder="Ilimitado" value="'+(nt.maxStages||'')+'" style="margin:0" oninput="updNt(\'maxStages\',this.value)"/></div>');
+    h.push('<div><div style="font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700">CONTAR MELHORES</div><input class="inp" type="number" min="1" placeholder="Todas" title="Top N resultados" value="'+(nt.topN||'')+'" style="margin:0" oninput="updNt(\'topN\',this.value)"/></div>');
+    h.push('</div>');
+  }
+  if(nt.format==='single'){
+    h.push('<div style="font-size:12px;color:#4A5A72;margin-bottom:6px;font-weight:700">CATEGORIA</div>');
+    h.push('<select class="inp" onchange="updNt(\'categoria\',this.value)"><option value="masculino"'+(nt.categoria==='masculino'?' selected':'')+'>Masculino</option><option value="feminino"'+(nt.categoria==='feminino'?' selected':'')+'>Feminino</option><option value="mista"'+(nt.categoria==='mista'?' selected':'')+'>Mista</option><option value="aberto"'+(nt.categoria==='aberto'?' selected':'')+'>Aberto</option></select>');
+  }
+  if(nt.format==='ranking'&&nt.categoria==='masculino'){
+    // auto-fix categoria for ranking
+    setS({nt:Object.assign({},nt,{categoria:''})});
+  }
+  h.push('<button class="btn-gold" style="margin-top:4px" onclick="createTour()">Criar Torneio</button>');
+  return h.join('');
+}
+function updNt(k,v){
+  S.nt[k]=v;
+  // When switching to ranking format, reset to open category
+  if(k==='format'&&v==='ranking'&&['masculino','feminino','mista'].indexOf(S.nt.categoria)>=0){
+    S.nt.categoria='';
+  }
+  if(k==='format'||k==='categoria'||k==='criteria'){set({})}
+  else if(k==='numPlayers'||k==='numCourts'){updateCalc()}
+}
+function updateCalc(){
+  var el=document.getElementById('calc-preview');
+  if(!el)return;
+  var nt=S.nt,n=parseInt(nt.numPlayers)||0,c=parseInt(nt.numCourts)||1;
+  if(n<4){el.innerHTML='';return}
+  var play=Math.min(c,Math.floor(n/4))*4,sit=n-play;
+  var valid=validRR(n,nt.categoria,c);
+  var cy=sit>0?Math.ceil(n/sit):(n>1?n-1:0);
+  var rounds=sit>0?cy*3:(n>1?n-1:0);
+  el.innerHTML='<div style="border-radius:10px;overflow:hidden;border:1px solid '+(valid?'#22C55E':'#EF4444')+';margin-bottom:14px">'+
+    '<div style="background:'+(valid?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)')+';padding:10px 14px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">'+
+    '<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:'+(valid?'#22C55E':'#EF4444')+'">'+play+'</div><div style="font-size:10px;color:#4A5A72">jogam/rod.</div></div>'+
+    '<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:'+(sit>0?'#F97316':'#22C55E')+'">'+sit+'</div><div style="font-size:10px;color:#4A5A72">de fora</div></div>'+
+    '<div style="text-align:center"><div style="font-size:22px;font-weight:900;color:#C8A84B">'+(rounds||'—')+'</div><div style="font-size:10px;color:#4A5A72">rodadas</div></div>'+
+    '</div><div style="padding:7px 14px;font-size:11px;color:'+(valid?(sit>0?'#F97316':'#22C55E'):'#EF4444')+'">'+
+    (valid?(sit>0?'✓ Fora de uma rodada entra na próxima':'✓ Todos jogam em todas as rodadas'):(nt.categoria==='mista'?'Mista: apenas 4, 8, 16 ou 32':'Mínimo 4 jogadores'))+
+    '</div></div>';
+}
+function createTour(){
+  var nt=S.nt;if(!nt.name.trim())return;
+  var t={id:uid(),name:nt.name.trim(),arena:nt.arena.trim(),date:nt.date,format:nt.format,categoria:nt.categoria,criteria:nt.criteria,endDate:nt.endDate||'',maxStages:nt.maxStages?parseInt(nt.maxStages):null,topN:nt.topN?parseInt(nt.topN):null,numCourts:parseInt(nt.numCourts)||1,maxPlayers:nt.numPlayers?parseInt(nt.numPlayers):null,numRounds:nt.numRounds?parseInt(nt.numRounds):null,status:'registration',players:[],rounds:[],schedule:[],stages:[],champion:null,created:new Date().toISOString()};
+  var u=S.tours.concat([t]);save('bl_t',u);
+  set({tours:u,nt:{name:'',arena:'',date:td(),endDate:'',format:'single',categoria:'masculino',criteria:'wins_first',numCourts:'1',numPlayers:'',numRounds:'',maxStages:'',topN:''},modal:'tournament',sel:t,tR:0});
+  toast_('"'+t.name+'" criado! 🏆');
+}
+
+// ── MODAL: TOURNAMENT ──
+function selTour(id){var t=S.tours.find(function(x){return x.id===id});if(t)set({sel:t,modal:'tournament',tR:0})}
+function renderModalTournament(){
+  var at=S.tours.find(function(x){return x.id===S.sel.id});
+  if(!at)return'';
+  var h=[],isRR=at.format==='rei_rainha';
+  h.push('<div style="margin-bottom:16px">');
+  h.push('<div style="display:flex;justify-content:space-between;align-items:flex-start">');
+  h.push('<div style="font-size:20px;font-weight:800;flex:1">'+esc(at.name)+'</div>');
+  h.push('<button onclick="openEditTour(\''+at.id+'\')" style="background:transparent;border:1px solid #1C2740;border-radius:8px;color:#4A5A72;font-size:11px;padding:4px 8px;cursor:pointer;flex-shrink:0;margin-left:6px">✏️ Editar</button>');
+  h.push('<button onclick="deleteTour(\''+at.id+'\')" style="background:transparent;border:1px solid #EF4444;border-radius:8px;color:#EF4444;font-size:11px;padding:4px 8px;cursor:pointer;flex-shrink:0;margin-left:4px">🗑 Apagar</button>');
+  h.push('</div>');
+  h.push('<div style="font-size:13px;color:#4A5A72;margin-top:3px">'+(at.arena||'—')+' · '+at.date+'</div>');
+  if(isRR&&at.status!=='registration')h.push('<div style="font-size:12px;color:#A855F7;margin-top:3px">'+(at.activeCourts||at.numCourts||1)+' quadra(s) · '+((at.schedule&&at.schedule.length)||0)+' rodadas</div>');
+  h.push('</div>');
+  if(at.format==='ranking')h.push(renderCircuit(at));
+  else if(at.status==='registration')h.push(renderReg(at));
+  else if(isRR&&at.schedule)h.push(renderRR(at));
+  else if(!isRR&&at.rounds)h.push(renderBracket(at));
+  return h.join('');
+}
+
+function renderReg(at){
+  var h=[],isRR=at.format==='rei_rainha';
+  var enrolled=at.players.length;
+  var max=at.maxPlayers;
+  // Status bar
+  h.push('<div style="font-size:13px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between"><span>Inscrições</span><span style="color:'+(max&&enrolled>=max?'#22C55E':'#4A5A72')+'">'+enrolled+(max?'/'+max:'')+' jog.</span></div>');
+  if(isRR){
+    var n=enrolled,c=optC(n,at.numCourts||1),play=c*4,sit=n-play,valid=validRR(n,at.categoria,at.numCourts||1);
+    var valMsg='';
+    if(valid){
+      valMsg='✅ '+n+' jog. · '+c+' quad. · '+play+' jogam · '+sit+' de fora';
+    } else if(at.categoria==='mista'){
+      var rr=at.players.map(function(id){return S.players.find(function(p){return p.id===id})}).filter(Boolean);
+      var mc=rr.filter(function(p){return p.gender==='M'}).length;
+      var fc=rr.filter(function(p){return p.gender==='F'}).length;
+      var sc2=rr.filter(function(p){return!p.gender}).length;
+      var sm=mc+'H + '+fc+'M'+(sc2>0?' ('+sc2+' sem genero)':'');
+      if(sc2>0)valMsg='[!] '+sm+' - genero de '+sc2+(sc2>1?' jogadores':' jogador')+' nao cadastrado';
+      else if(!RR_MISTA.includes(n)){var nx=RR_MISTA.filter(function(x){return x>n})[0];
+        if(nx){var nd=nx-n,dg=mc-fc;
+          if(dg===0)valMsg='[!] '+sm+' - adicione '+nd+(nd>1?' jogadores':' jogador')+' para '+nx;
+          else if(dg>0)valMsg='[!] '+sm+' - faltam '+nd+(nd>1?' mulheres':' mulher')+' para completar '+nx;
+          else{var da=Math.abs(dg);valMsg='[!] '+sm+' - faltam '+da+(da>1?' homens':' homem')+' para completar '+nx;}
+        }else{valMsg='[!] '+sm+' - maximo 32 jogadores';}
+      }else if(mc!==fc){var dg2=mc-fc;
+        if(dg2>0)valMsg='[!] '+sm+' - faltam '+dg2+(dg2>1?' mulheres':' mulher');
+        else{var db=Math.abs(dg2);valMsg='[!] '+sm+' - faltam '+db+(db>1?' homens':' homem');}
+      }else{valMsg='[!] Mista: use 4, 8, 16 ou 32 jogadores';}
+    } else {
+      valMsg='⚠️ Mínimo 4 jogadores (você tem '+n+')';
+    }
+    h.push('<div style="margin-bottom:12px;padding:9px 12px;background:'+(valid?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)')+';border:1px solid '+(valid?'#22C55E':'#EF4444')+';border-radius:8px;font-size:12px;color:'+(valid?'#22C55E':'#EF4444')+'">'+valMsg+'</div>');
+  }
+  // Available players (not yet enrolled)
+  var avail=S.players.filter(function(p){return at.players.indexOf(p.id)<0});
+  if(avail.length>0){
+    var allSel=avail.every(function(p){return S.tourSel.indexOf(p.id)>=0});
+    h.push('<div style="background:#161E2E;border-radius:12px;padding:12px;margin-bottom:10px">');
+    h.push('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">');
+    h.push('<span style="font-size:12px;font-weight:700;color:#4A5A72">DISPONÍVEIS ('+avail.length+')</span>');
+    h.push('<button onclick="toggleAllTour()" style="font-size:11px;padding:4px 10px;border:1px solid #1C2740;border-radius:20px;background:transparent;color:#C8A84B;cursor:pointer">'+(allSel?'Desmarcar todos':'Selecionar todos')+'</button>');
+    h.push('</div>');
+    avail.forEach(function(p){
+      var sel=S.tourSel.indexOf(p.id)>=0;
+      h.push('<div id="tsel_'+p.id+'" onclick="toggleTourSel(\''+p.id+'\')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;background:'+(sel?'rgba(200,168,75,.1)':'transparent')+';margin-bottom:4px">');
+      h.push('<div class="sel-dot" style="width:20px;height:20px;border-radius:50%;border:2px solid '+(sel?'#C8A84B':'#4A5A72')+';background:'+(sel?'#C8A84B':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(sel?'<span style="font-size:11px;color:#000;font-weight:900">✓</span>':'')+'</div>');
+      h.push('<div style="flex:1"><span style="font-weight:600;font-size:14px">'+esc(p.name)+'</span></div>');
+      if(p.gender)h.push('<span style="font-size:11px;color:#4A5A72">'+p.gender+'</span>');
+      h.push('</div>');
+    });
+    h.push('<button id="add-sel-btn" onclick="addSelectedToTour(\''+at.id+'\')" style="width:100%;margin-top:10px;padding:11px;background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:10px;color:#000;font-weight:800;font-size:14px;cursor:pointer;display:'+(S.tourSel.length>0?'block':'none')+'">+ Adicionar '+S.tourSel.length+' jogador'+(S.tourSel.length>1?'es':'')+'</button>');
+    h.push('</div>');
+  }
+  // Already enrolled
+  if(at.players.length>0){
+    h.push('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">');
+    h.push('<div style="font-size:11px;color:#4A5A72;font-weight:700">INSCRITOS ('+at.players.length+')</div>');
+    h.push('<button onclick="set({tourBulk:S.tourBulk.length?[]:at.players.slice()})" style="font-size:11px;padding:3px 10px;border:1px solid #1C2740;border-radius:20px;background:transparent;color:#4A5A72;cursor:pointer">'+(S.tourBulk.length?'Desmarcar':'Sel. todos')+'</button>');
+    h.push('</div>');
+    if(S.tourBulk.length>0){
+      h.push('<button onclick="bulkRemoveFromTour(\''+at.id+'\')" style="width:100%;padding:9px;background:#EF4444;border:none;border-radius:10px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;margin-bottom:8px">🗑 Remover '+S.tourBulk.length+' selecionado'+(S.tourBulk.length>1?'s':'')+'</button>');
+    }
+    at.players.forEach(function(pid){
+      var pg=S.players.find(function(p){return p.id===pid});
+      var tbSel=S.tourBulk.indexOf(pid)>=0;
+      h.push('<div onclick="toggleTourBulk(\''+pid+'\')" style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:'+(tbSel?'rgba(239,68,68,.1)':'#161E2E')+';border-radius:8px;margin-bottom:5px;cursor:pointer;border:1px solid '+(tbSel?'#EF4444':'transparent')+'">');
+      h.push('<div style="display:flex;align-items:center;gap:8px">');
+      h.push('<div style="width:18px;height:18px;border-radius:50%;border:2px solid '+(tbSel?'#EF4444':'#4A5A72')+';background:'+(tbSel?'#EF4444':'transparent')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(tbSel?'<span style="color:#fff;font-size:10px;font-weight:900">✓</span>':'')+'</div>');
+      h.push('<span style="font-size:16px">'+(pg&&pg.gender==='F'?'👩':pg&&pg.gender==='M'?'👨':'🎾')+'</span>');
+      h.push('<span style="font-weight:600;font-size:14px">'+nm_(pid)+'</span></div>');
+      h.push('<button onclick="event.stopPropagation();removeFromTour(\''+at.id+'\',\''+pid+'\')" style="background:transparent;border:none;color:#EF4444;cursor:pointer;font-size:16px;padding:2px 6px">×</button>');
+      h.push('</div>');
+    });
+  }
+  h.push('<div style="height:14px"></div>');
+  h.push('<button class="btn-gold" onclick="startTour(\''+at.id+'\')">'+(isRR?'👑':'🏆')+' Iniciar</button>');
+  return h.join('');
+}
+
+function toggleTourSel(pid){
+  var idx=S.tourSel.indexOf(pid);
+  if(idx>=0)S.tourSel.splice(idx,1);
+  else S.tourSel.push(pid);
+  // DOM update — sem re-render completo
+  var row=document.getElementById('tsel_'+pid);
+  if(row){
+    var sel=S.tourSel.indexOf(pid)>=0;
+    row.style.background=sel?'rgba(200,168,75,.1)':'transparent';
+    var dot=row.querySelector('.sel-dot');
+    if(dot){dot.style.borderColor=sel?'#C8A84B':'#4A5A72';dot.style.background=sel?'#C8A84B':'transparent';dot.innerHTML=sel?'<span style="font-size:11px;color:#000;font-weight:900">✓</span>':'';}
+  }
+  var btn=document.getElementById('add-sel-btn');
+  if(btn){
+    btn.style.display=S.tourSel.length>0?'block':'none';
+    btn.textContent='+ Adicionar '+S.tourSel.length+' jogador'+(S.tourSel.length>1?'es':'');
+  }
+}
+function toggleAllTour(){
+  var at=S.tours.find(function(x){return x.id===S.sel.id});
+  if(!at)return;
+  var avail=S.players.filter(function(p){return at.players.indexOf(p.id)<0}).map(function(p){return p.id});
+  var allSel=avail.every(function(id){return S.tourSel.indexOf(id)>=0});
+  S.tourSel=allSel?[]:avail.slice();
+  set({}); // re-render só aqui (toggle all)
+}
+function addSelectedToTour(tid){
+  if(!S.tourSel.length)return;
+  var t=S.tours.find(function(x){return x.id===tid});
+  if(!t)return;
+  var toAdd=S.tourSel.filter(function(pid){return t.players.indexOf(pid)<0});
+  if(t.maxPlayers&&t.players.length+toAdd.length>t.maxPlayers){
+    toast_('Limite de '+t.maxPlayers+' jogadores','#F97316');
+    toAdd=toAdd.slice(0,t.maxPlayers-t.players.length);
+  }
+  var u=S.tours.map(function(x){return x.id!==tid?x:Object.assign({},x,{players:x.players.concat(toAdd)})});
+  save('bl_t',u);set({tours:u,sel:u.find(function(x){return x.id===tid}),tourSel:[]});
+  toast_(toAdd.length+' jogador'+(toAdd.length>1?'es':'')+' inscritos! ✓');
+}
+function toggleTourBulk(pid){
+  var idx=S.tourBulk.indexOf(pid);
+  if(idx>=0)S.tourBulk.splice(idx,1);else S.tourBulk.push(pid);
+  set({});
+}
+function bulkRemoveFromTour(tid){
+  if(!S.tourBulk.length)return;
+  if(!confirm('Remover '+S.tourBulk.length+' jogador(es) do torneio?'))return;
+  var u=S.tours.map(function(x){return x.id!==tid?x:Object.assign({},x,{players:x.players.filter(function(p){return S.tourBulk.indexOf(p)<0})})});
+  save('bl_t',u);set({tours:u,sel:u.find(function(x){return x.id===tid}),tourBulk:[]});
+  toast_('Jogadores removidos do torneio','#EF4444');
+}
+function openEditTour(tid){
+  var t=S.tours.find(function(x){return x.id===tid});
+  if(!t)return;
+  setS({nt:Object.assign({},S.nt,{name:t.name,arena:t.arena,date:t.date,format:t.format,categoria:t.categoria,criteria:t.criteria,numCourts:String(t.numCourts||1),numPlayers:t.maxPlayers?String(t.maxPlayers):'',numRounds:t.numRounds?String(t.numRounds):''})});
+  set({modal:'editTour'});
+}
+function saveEditTour(){
+  var nt=S.nt,at=S.sel;
+  if(!nt.name.trim()||!at)return;
+  var u=S.tours.map(function(t){return t.id!==at.id?t:Object.assign({},t,{name:nt.name.trim(),arena:nt.arena.trim(),date:nt.date,numCourts:parseInt(nt.numCourts)||1,maxPlayers:nt.numPlayers?parseInt(nt.numPlayers):null})});
+  save('bl_t',u);
+  var upd=u.find(function(x){return x.id===at.id});
+  set({tours:u,sel:upd,modal:'tournament'});
+  toast_('Torneio atualizado ✓');
+}
+function renderModalEditTour(){
+  var nt=S.nt,at=S.sel;
+  if(!at)return'';
+  var h=[];
+  h.push('<div style="font-size:20px;font-weight:800;margin-bottom:4px">Editar Torneio</div>');
+  h.push('<div style="font-size:13px;color:#4A5A72;margin-bottom:16px">'+esc(at?at.name:'')+'</div>');
+  h.push('<input class="inp" placeholder="Nome *" value="'+esc(nt.name)+'" oninput="updNt(\'name\',this.value)"/>');
+  h.push('<input class="inp" placeholder="Arena" value="'+esc(nt.arena)+'" oninput="updNt(\'arena\',this.value)"/>');
+  h.push('<input class="inp" type="date" value="'+nt.date+'" onchange="updNt(\'date\',this.value)"/>');
+  if(at.format==='rei_rainha'){
+    h.push('<div class="grid2" style="margin-top:4px">');
+    h.push('<div><div style="font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700">JOGADORES</div><input class="inp" type="number" min="4" placeholder="Max" value="'+esc(nt.numPlayers)+'" style="margin:0" oninput="updNt(\'numPlayers\',this.value)"/></div>');
+    h.push('<div><div style="font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700">QUADRAS</div><input class="inp" type="number" min="1" value="'+esc(nt.numCourts)+'" style="margin:0" oninput="updNt(\'numCourts\',this.value)"/></div>');
+    h.push('</div>');
+  }
+  h.push('<div style="height:8px"></div>');
+  h.push('<button class="btn-gold" onclick="saveEditTour()">Salvar alterações</button>');
+  if(at.status==='active'){
+    h.push('<div style="margin-top:14px;padding:12px;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.3);border-radius:10px;font-size:12px;color:#F97316">');
+    h.push('⚠️ Torneio em andamento. Alterar jogadores pode afetar o cronograma de rodadas.');
+    h.push('</div>');
+  }
+  return h.join('');
+}
+function removeFromTour(tid,pid){
+  var u=S.tours.map(function(x){return x.id!==tid?x:Object.assign({},x,{players:x.players.filter(function(p){return p!==pid})})});
+  save('bl_t',u);set({tours:u,sel:u.find(function(x){return x.id===tid})});
+}
+
+function deleteTour(tid){
+  if(!confirm('Apagar torneio? Essa ação não pode ser desfeita.'))return;
+  var u=S.tours.filter(function(x){return x.id!==tid});
+  save('bl_t',u);set({tours:u,modal:null,sel:null,tourSel:[]});
+  toast_('Torneio apagado','#EF4444');
+}
+function joinTour(tid,pid){
+  if(!pid)return;
+  var t=S.tours.find(function(x){return x.id===tid});
+  if(!t||t.players.indexOf(pid)>=0)return;
+  if(t.maxPlayers&&t.players.length>=t.maxPlayers){toast_('Torneio cheio ('+t.maxPlayers+')','#F97316');return}
+  var u=S.tours.map(function(x){return x.id!==tid?x:Object.assign({},x,{players:x.players.concat([pid])})});
+  save('bl_t',u);set({tours:u,sel:u.find(function(x){return x.id===tid})});toast_(nm_(pid).replace(/&amp;/g,'&')+' inscrito!');
+}
+function startTour(tid){
+  var t=S.tours.find(function(x){return x.id===tid});if(!t)return;
+  if(t.format==='rei_rainha'){
+    var n=t.players.length;
+    if(!validRR(n,t.categoria,t.numCourts||1)){toast_(t.categoria==='mista'?'Mista: 4,8,16 ou 32. Tem '+n+'.':'Mín. 4 jog. Tem '+n+'.','#EF4444');return}
+    if(t.categoria==='mista'){
+      var reg=t.players.map(function(id){return S.players.find(function(p){return p.id===id})}).filter(Boolean);
+      var mC=reg.filter(function(p){return p.gender==='M'}).length,fC=reg.filter(function(p){return p.gender==='F'}).length;
+      if(mC!==fC||reg.some(function(p){return!p.gender})){toast_('Mista: M=F e gênero de todos cadastrado.','#EF4444');return}
+    }
+    var schedule,c;
+    if(t.categoria==='mista'){
+      schedule=genSchedMista(t.players,S.players,t.numRounds||null);
+      c=optC(n,t.numCourts||1);
+    }else{
+      c=optC(n,t.numCourts||1);
+      schedule=genSched(t.players,c,t.numRounds||null);
+    }
+    var u=S.tours.map(function(x){return x.id!==tid?x:Object.assign({},x,{status:'active',schedule:schedule,activeCourts:c})});
+    save('bl_t',u);set({tours:u,sel:u.find(function(x){return x.id===tid}),tR:0});
+    toast_('👑 Iniciado! '+c+' quadra(s) · '+schedule.length+' rodadas');
+  }else{
+    if(t.players.length<2){toast_('Mín. 2 jogadores','#EF4444');return}
+    var rounds=genBracket(t.players,S.matches);
+    var u=S.tours.map(function(x){return x.id!==tid?x:Object.assign({},x,{status:'active',rounds:rounds})});
+    save('bl_t',u);set({tours:u,sel:u.find(function(x){return x.id===tid}),tR:0});
+    toast_('🏆 Torneio iniciado!');
+  }
+}
+
+function renderRR(at){
+  var h=[],sched=at.schedule,tR=S.tR;
+  // standings
+  var st=calcSt(sched,at.players,at.criteria||'wins_first');
+  h.push('<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:800;color:#C8A84B;margin-bottom:10px">👑 Classificação</div>');
+  st.forEach(function(s,i){
+    h.push('<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:'+(i===0?'linear-gradient(135deg,#0B0F18,#130D00)':'#161E2E')+';border-radius:10px;margin-bottom:6px;border:1px solid '+(i===0?'#5A3800':'#1C2740')+'">');
+    h.push('<div style="font-size:'+(i<3?20:13)+'px;width:28px;text-align:center;flex-shrink:0">'+(i<3?['👑','🥈','🥉'][i]:'#'+(i+1))+'</div>');
+    h.push('<div style="flex:1"><div style="font-weight:700;font-size:14px">'+nm_(s.pid)+'</div><div style="font-size:10px;color:#4A5A72;margin-top:2px">'+s.played+'J · '+s.wins+'V · sal. '+fmtSaldo(s.saldo)+'</div></div>');
+    h.push('<div style="text-align:right;flex-shrink:0"><div style="font-weight:900;color:#C8A84B;font-size:16px">'+s.wins+'</div><div style="font-size:10px;color:#4A5A72">vit.</div></div>');
+    h.push('</div>');
+  });
+  h.push('</div>');
+  // round tabs
+  h.push('<div class="rounds-row">');
+  sched.forEach(function(r,i){
+    var done=r.courts.every(function(c){return c.sA!==null});
+    h.push('<button onclick="setM({tR:'+i+'})" style="padding:7px 13px;border:1.5px solid '+(tR===i?'#C8A84B':done?'#22C55E':'#1C2740')+';border-radius:20px;background:'+(tR===i?'rgba(200,168,75,.15)':done?'rgba(34,197,94,.1)':'#161E2E')+';color:'+(tR===i?'#C8A84B':done?'#22C55E':'#4A5A72')+';font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0;white-space:nowrap">R'+r.round+(done?' ✓':'')+'</button>');
+  });
+  h.push('</div>');
+  // current round
+  var cur=sched[tR];
+  if(cur){
+    if(cur.sitters&&cur.sitters.length>0){
+      h.push('<div style="margin-bottom:12px;padding:9px 14px;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.3);border-radius:10px">');
+      h.push('<div style="font-size:11px;color:#F97316;font-weight:700;margin-bottom:6px">⏳ DE FORA — entram na próxima</div><div style="display:flex;flex-wrap:wrap;gap:6px">');
+      cur.sitters.forEach(function(pid){h.push('<span style="background:rgba(249,115,22,.15);color:#F97316;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:700">'+nm_(pid)+'</span>')});
+      h.push('</div></div>');
+    }
+    cur.courts.forEach(function(court,ci){
+      var done=court.sA!==null;
+      h.push('<div style="background:#0B0F18;border:1px solid '+(done?'#22C55E':'#1C2740')+';border-radius:12px;padding:14px;margin-bottom:10px">');
+      h.push('<div style="font-size:11px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between"><span style="color:#4A5A72">QUADRA '+(ci+1)+'</span><span style="color:'+(done?'#22C55E':'#38BDF8')+';font-size:10px">'+(done?'✓':'▶')+'</span></div>');
+      h.push('<div style="display:flex;align-items:center;gap:8px">');
+      h.push('<div style="flex:1;text-align:center"><div style="font-size:13px;font-weight:700">'+nm_(court.t1[0])+'</div><div style="font-size:11px;color:#4A5A72">& '+nm_(court.t1[1])+'</div></div>');
+      h.push('<div style="font-weight:900;color:'+(done?'#C8A84B':'#4A5A72')+';font-size:'+(done?20:15)+'px;min-width:52px;text-align:center">'+(done?court.sA+'×'+court.sB:'VS')+'</div>');
+      h.push('<div style="flex:1;text-align:center"><div style="font-size:13px;font-weight:700">'+nm_(court.t2[0])+'</div><div style="font-size:11px;color:#4A5A72">& '+nm_(court.t2[1])+'</div></div>');
+      h.push('</div>');
+      if(!done&&at.status==='active'){
+        var editing=S.se.cid===court.id;
+        if(editing){
+          h.push('<div style="margin-top:12px"><div class="score-row"><input class="score-inp" type="number" placeholder="0" value="'+esc(S.se.sA)+'" oninput="updSe(\'sA\',this.value)"><input class="score-inp" type="number" placeholder="0" value="'+esc(S.se.sB)+'" oninput="updSe(\'sB\',this.value)"></div>');
+          h.push('<div style="display:flex;gap:8px"><button onclick="setSe0()" style="flex:1;padding:10px;background:transparent;border:1px solid #1C2740;border-radius:10px;color:#4A5A72;cursor:pointer">Cancelar</button><button onclick="recRR()" style="flex:2;padding:10px;background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:10px;color:#000;font-weight:800;cursor:pointer">Salvar</button></div></div>');
+        }else{
+          h.push('<button onclick="startEditRR(\''+at.id+'\','+tR+',\''+court.id+'\')" style="width:100%;margin-top:10px;padding:9px;background:#161E2E;border:1px solid #1C2740;border-radius:10px;color:#4A5A72;cursor:pointer;font-size:13px">✏️ Registrar placar</button>');
+        }
+      }
+      h.push('</div>');
+    });
+  }
+  return h.join('');
+}
+
+function renderBracket(at){
+  var h=[],rounds=at.rounds,tR=S.tR;
+  h.push('<div class="rounds-row">');
+  rounds.forEach(function(r,i){
+    h.push('<button onclick="setM({tR:'+i+'})" style="padding:7px 13px;border:1.5px solid '+(tR===i?'#C8A84B':'#1C2740')+';border-radius:20px;background:'+(tR===i?'rgba(200,168,75,.15)':'#161E2E')+';color:'+(tR===i?'#C8A84B':'#4A5A72')+';font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0;white-space:nowrap">'+esc(r.name)+'</button>');
+  });
+  h.push('</div>');
+  var cur=rounds[tR];
+  if(cur){
+    cur.matches.forEach(function(m){
+      h.push('<div style="background:#0B0F18;border:1px solid '+(m.winnerId?'#22C55E':'#1C2740')+';border-radius:12px;padding:14px;margin-bottom:10px">');
+      h.push('<div style="display:flex;align-items:center;gap:8px">');
+      h.push('<div style="flex:1;text-align:center;opacity:'+(m.winnerId&&m.winnerId!==m.p1?0.5:1)+'"><div style="font-weight:700">'+(m.p1?nm_(m.p1):'BYE')+'</div></div>');
+      h.push('<div style="font-weight:900;color:'+(m.winnerId?'#C8A84B':'#4A5A72')+';font-size:'+(m.winnerId?20:14)+'px;min-width:48px;text-align:center">'+(m.sA!==null?m.sA+'×'+m.sB:'VS')+'</div>');
+      h.push('<div style="flex:1;text-align:center;opacity:'+(m.winnerId&&m.winnerId!==m.p2?0.5:1)+'"><div style="font-weight:700">'+(m.p2?nm_(m.p2):'BYE')+'</div></div>');
+      h.push('</div>');
+      if(!m.winnerId&&m.p1&&m.p2&&at.status==='active'){
+        var editing=S.se.mid===m.id;
+        if(editing){
+          h.push('<div style="margin-top:12px"><div class="score-row"><input class="score-inp" type="number" placeholder="0" value="'+esc(S.se.sA)+'" oninput="updSe(\'sA\',this.value)"><input class="score-inp" type="number" placeholder="0" value="'+esc(S.se.sB)+'" oninput="updSe(\'sB\',this.value)"></div>');
+          h.push('<div style="display:flex;gap:8px"><button onclick="setSe0()" style="flex:1;padding:10px;background:transparent;border:1px solid #1C2740;border-radius:10px;color:#4A5A72;cursor:pointer">Cancelar</button><button onclick="recScore()" style="flex:2;padding:10px;background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:10px;color:#000;font-weight:800;cursor:pointer">Salvar</button></div></div>');
+        }else{
+          h.push('<button onclick="startEditScore(\''+at.id+'\','+tR+',\''+m.id+'\',\''+m.p1+'\',\''+m.p2+'\')" style="width:100%;margin-top:10px;padding:9px;background:#161E2E;border:1px solid #1C2740;border-radius:10px;color:#4A5A72;cursor:pointer;font-size:13px">✏️ Registrar placar</button>');
+        }
+      }
+      h.push('</div>');
+    });
+  }
+  return h.join('');
+}
+
+// score editing
+function startEditRR(tid,rid,cid){S.se={tid:tid,rid:rid,cid:cid,mid:'',sA:'',sB:'',p1:'',p2:''};renderSheet()}
+function backToCircuit2(cid){var c=S.tours.find(function(t){return t.id===cid});if(c)set({sel:c,modal:'tournament',tR:0});}
+function seCourtStg(el){S.se={tid:'stage_'+el.dataset.cid2+'_'+el.dataset.sid2,cid:el.dataset.court,sA:'',sB:''};renderSheet();}
+function startEditScoreDA(el){startEditScore('stage_'+el.dataset.skey,+el.dataset.tr,el.dataset.mid,el.dataset.p1,el.dataset.p2);}
+
+function startEditScore(tid,rid,mid,p1,p2){S.se={tid:tid,rid:rid,cid:'',mid:mid,sA:'',sB:'',p1:p1,p2:p2};renderSheet()}
+function updSe(k,v){S.se[k]=v}
+function setSe0(){S.se={tid:'',rid:0,cid:'',mid:'',sA:'',sB:'',p1:'',p2:''};renderSheet()}
+
+function recRR(){
+  var se=S.se;if(!se.sA||!se.sB)return;
+  var sa=parseInt(se.sA),sb=parseInt(se.sB);
+  if(sa===sb){toast_('Sem empate','#EF4444');return}
+  var ut=S.tours.map(function(t){
+    if(t.id!==se.tid)return t;
+    var schedule=t.schedule.map(function(r,ri){return ri!==se.rid?r:Object.assign({},r,{courts:r.courts.map(function(c){return c.id!==se.cid?c:Object.assign({},c,{sA:sa,sB:sb})})})});
+    var done=schedule.every(function(r){return r.courts.every(function(c){return c.sA!==null})});
+    var champ=t.champion,status=t.status;
+    if(done){var st=calcSt(schedule,t.players,t.criteria||'wins_first');champ=st[0]?st[0].pid:null;status='finished'}
+    return Object.assign({},t,{schedule:schedule,champion:champ,status:status});
+  });
+  save('bl_t',ut);
+  var tt=ut.find(function(x){return x.id===se.tid});
+  Object.assign(S,{tours:ut,sel:tt,se:{tid:'',rid:0,cid:'',mid:'',sA:'',sB:'',p1:'',p2:''}});
+  renderSheet();
+  if(tt.status==='finished')toast_('👑 '+S.players.find(function(p){return p.id===tt.champion}).name+' REI/RAINHA!','#C8A84B');
+  else toast_('Salvo! 🎾');
+}
+
+function recScore(){
+  var se=S.se;if(!se.sA||!se.sB)return;
+  var sa=parseInt(se.sA),sb=parseInt(se.sB);
+  if(sa===sb){toast_('Sem empate','#EF4444');return}
+  var wid=sa>sb?se.p1:se.p2;
+  var ut=S.tours.map(function(t){
+    if(t.id!==se.tid)return t;
+    var rounds=t.rounds.map(function(r,ri){return ri!==se.rid?r:Object.assign({},r,{matches:r.matches.map(function(m){return m.id!==se.mid?m:Object.assign({},m,{sA:sa,sB:sb,winnerId:wid})})})});
+    return Object.assign({},t,{rounds:rounds});
+  });
+  var tt=ut.find(function(x){return x.id===se.tid});
+  if(tt.rounds[se.rid].matches.every(function(m){return m.winnerId})){
+    var nr=advR(tt.rounds);
+    var champ=nr[nr.length-1].matches.length===1&&nr[nr.length-1].matches[0].winnerId?nr[nr.length-1].matches[0].winnerId:null;
+    ut=ut.map(function(t){return t.id!==se.tid?t:Object.assign({},t,{rounds:nr,champion:champ,status:champ?'finished':'active'})});
+    if(champ){toast_('🏆 '+S.players.find(function(p){return p.id===champ}).name+' CAMPEÃO!','#C8A84B')}
+    else{toast_('Rodada completa!','#38BDF8');set({tR:se.rid+1})}
+  }
+  var gm={id:uid(),pA:se.p1,pB:se.p2,sA:sa,sB:sb,winnerId:wid,arena:tt.arena,date:tt.date,created:new Date().toISOString(),type:'tournament',tournamentId:se.tid};
+  var um=S.matches.concat([gm]);save('bl_m',um);save('bl_t',ut);
+  Object.assign(S,{tours:ut,matches:um,sel:ut.find(function(x){return x.id===se.tid}),se:{tid:'',rid:0,cid:'',mid:'',sA:'',sB:'',p1:'',p2:''}});
+  renderSheet();
+}
+
+// ── MODAL: PROFILE ──
+function addTitle(){
+  var t=document.getElementById('novo-titulo');
+  var val=(t?t.value:S.np.novoTitulo||'').trim();
+  if(!val)return;
+  var arr=Array.isArray(S.np.titulosAntes)?S.np.titulosAntes.slice():[];
+  arr.push(val);
+  S.np.titulosAntes=arr;
+  S.np.novoTitulo='';
+  renderSheet();
+}
+function removeTitle(idx){
+  var arr=Array.isArray(S.np.titulosAntes)?S.np.titulosAntes.slice():[];
+  arr.splice(idx,1);
+  S.np.titulosAntes=arr;
+  renderSheet();
+}
+function handlePhoto(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var max=300,ratio=Math.min(max/img.width,max/img.height,1);
+      var cv=document.createElement('canvas');
+      cv.width=Math.round(img.width*ratio);cv.height=Math.round(img.height*ratio);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      var b64=cv.toDataURL('image/jpeg',.75);
+      S.np.photo=b64;
+      var pr=document.getElementById('photo-preview');
+      if(pr){pr.src=b64;pr.style.display='block';pr.style.width='80px';pr.style.height='80px';pr.style.borderRadius='50%';pr.style.objectFit='cover';}
+      var ph=document.getElementById('photo-placeholder');
+      if(ph)ph.style.display='none';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function toggleBulkSel(id){
+  var idx=S.bulkSel.indexOf(id);
+  if(idx>=0)S.bulkSel.splice(idx,1);else S.bulkSel.push(id);
+  set({});
+}
+function bulkDeletePlayers(){
+  if(!S.bulkSel.length)return;
+  if(!confirm('Excluir '+S.bulkSel.length+' jogador(es)?'))return;
+  var u=S.players.filter(function(p){return S.bulkSel.indexOf(p.id)<0});
+  save('bl_p',u);set({players:u,bulkSel:[],bulkMode:false});
+  toast_('Jogadores removidos','#EF4444');
+}
+// ── CIRCUIT / RANKING DISPLAY ──
+var _stageModal = null; // currently open stage id
+
+function renderCircuit(circuit) {
+  var h = [];
+  var standings = calcCircuitStandings(circuit);
+  var stages = circuit.stages || [];
+  var medals = ['🥇','🥈','🥉'];
+  var catLabel = {Pro:'Pró',A:'A',B:'B',C:'C',D:'D','':'Todas'};
+  var finishedStages = stages.filter(function(s){return s.status==='finished'}).length;
+
+  // Info bar
+  h.push('<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">');
+  h.push('<span style="background:rgba(255,215,0,.12);color:#FFD700;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">🏅 Circuito</span>');
+  h.push('<span style="background:#161E2E;color:#4A5A72;border-radius:20px;padding:3px 10px;font-size:11px">'+(circuit.categoria?catLabel[circuit.categoria]||circuit.categoria:'Aberto')+'</span>');
+  h.push('<span style="background:#161E2E;color:#4A5A72;border-radius:20px;padding:3px 10px;font-size:11px">'+finishedStages+'/'+stages.length+' etapas</span>');
+  if(circuit.endDate) h.push('<span style="background:#161E2E;color:#4A5A72;border-radius:20px;padding:3px 10px;font-size:11px">até '+circuit.endDate+'</span>');
+  h.push('</div>');
+
+  // Points table reference
+  h.push('<div style="background:#161E2E;border-radius:10px;padding:10px 12px;margin-bottom:14px;display:flex;gap:12px;flex-wrap:wrap">');
+  h.push('<div style="font-size:11px;color:#4A5A72;font-weight:700;width:100%">PONTUAÇÃO POR POSIÇÃO ('+((circuit.categoria?catLabel[circuit.categoria]||circuit.categoria:'Aberto')||'Todas')+')</div>');
+  var mult=CAT_MULT[circuit.categoria||'']||1.0;
+  [[1,'🥇',100],[2,'🥈',70],[3,'🥉',50],[4,'4º',35],[5,'5-8',20],[9,'9-16',10]].forEach(function(row){
+    var pts=Math.round(row[2]*mult);
+    h.push('<div style="text-align:center"><div style="font-size:11px;color:#C8A84B;font-weight:800">'+pts+'</div><div style="font-size:9px;color:#4A5A72">'+row[1]+'</div></div>');
+  });
+  if(mult<1.0) h.push('<div style="font-size:10px;color:#4A5A72;width:100%;margin-top:4px">Fator Cat.: ×'+mult+'</div>');
+  h.push('</div>');
+
+  // Standings
+  if(standings.length > 0) {
+    h.push('<div style="font-size:12px;color:#FFD700;font-weight:700;margin-bottom:8px">🏆 CLASSIFICAÇÃO GERAL</div>');
+    standings.forEach(function(s,i){
+      var isTop = i < 3;
+      h.push('<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:'+(i===0?'linear-gradient(135deg,#0B0F18,#1A1400)':'#161E2E')+';border-radius:10px;margin-bottom:5px;border:1px solid '+(i===0?'#FFD700':'#1C2740')+'">');
+      h.push('<div style="font-size:'+(isTop?18:13)+'px;width:28px;text-align:center;flex-shrink:0">'+(isTop?medals[i]:'#'+(i+1))+'</div>');
+      var pp = S.players.find(function(p){return p.id===s.pid});
+      h.push('<div style="flex:1">');
+      h.push('<div style="font-weight:700;font-size:14px">'+(pp?esc(pp.name):'?')+'</div>');
+      h.push('<div style="font-size:10px;color:#4A5A72;margin-top:2px;display:flex;gap:8px">');
+      h.push('<span>'+s.stages+' etapas</span>');
+      if(s.titles>0) h.push('<span style="color:#FFD700">🏆 '+s.titles+' título'+(s.titles>1?'s':'')+'</span>');
+      if(s.vices>0)  h.push('<span style="color:#C0C0C0">🥈 '+s.vices+'</span>');
+      h.push('</div></div>');
+      h.push('<div style="text-align:right;flex-shrink:0"><div style="font-weight:900;color:#FFD700;font-size:18px">'+s.points+'</div><div style="font-size:9px;color:#4A5A72">pts</div></div>');
+      h.push('</div>');
+    });
+    h.push('<div style="margin-bottom:14px"></div>');
+  }
+
+  // Stages list
+  h.push('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">');
+  h.push('<div style="font-size:12px;color:#FFD700;font-weight:700">ETAPAS ('+stages.length+')</div>');
+  h.push('<button data-cid="'+circuit.id+'" onclick="openAddStage(this.dataset.cid)" style="background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:20px;padding:6px 14px;color:#000;font-weight:800;font-size:12px;cursor:pointer">+ Nova Etapa</button>');
+  h.push('</div>');
+
+  if(stages.length === 0) {
+    h.push('<div style="text-align:center;padding:20px;color:#4A5A72;font-size:13px">Nenhuma etapa ainda.<br>Crie a primeira etapa para começar!</div>');
+  }
+
+  stages.slice().reverse().forEach(function(stage) {
+    var stChamp = stage.champion;
+    var stResults = stage.status === 'finished' ? (stage.results || getStageResults(stage)) : {};
+    h.push('<div data-cid="'+circuit.id+'" data-sid="'+stage.id+'" onclick="openStage(this.dataset.cid,this.dataset.sid)" style="background:#0B0F18;border:1px solid '+(stage.status==='finished'?'#5A3800':'#1C2740')+';border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer">');
+    h.push('<div style="display:flex;justify-content:space-between;align-items:flex-start">');
+    h.push('<div style="flex:1"><div style="font-weight:700;font-size:14px">'+esc(stage.name)+'</div><div style="font-size:11px;color:#4A5A72;margin-top:3px">'+stage.date+(stage.format?' · '+(stage.format==='rei_rainha'?'Rei/Rainha':'Eliminação'):'')+'</div></div>');
+    h.push('<span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;background:'+(stage.status==='finished'?'rgba(200,168,75,.15)':stage.status==='active'?'rgba(34,197,94,.15)':'rgba(255,255,255,.05)')+';color:'+(stage.status==='finished'?'#C8A84B':stage.status==='active'?'#22C55E':'#4A5A72')+'">'+(stage.status==='finished'?'✓ Concluída':stage.status==='active'?'Em andamento':'Inscrições')+'</span>');
+    h.push('</div>');
+    if(stChamp) {
+      var pts1 = stagePoints(1, stage.cat||circuit.categoria||'');
+      h.push('<div style="margin-top:8px;display:flex;align-items:center;gap:6px"><span style="color:#FFD700">🏆</span><span style="font-size:12px;color:#FFD700;font-weight:700">'+nm_(stChamp)+'</span><span style="font-size:10px;color:#4A5A72">+'+pts1+' pts</span></div>');
+    }
+    h.push('</div>');
+  });
+
+  return h.join('');
+}
+
+// Open add stage modal
+function openAddStage(circuitId) {
+  setS({sel: S.tours.find(function(x){return x.id===circuitId}), _addStage: {circuitId:circuitId, name:'', date:td(), format:'single', cat:'', numCourts:'1', numPlayers:''}});
+  set({modal:'addStage'});
+}
+
+function renderModalAddStage(){
+  var as=S._addStage||{};
+  var circ=S.sel;
+  var h=[];
+  h.push("<div style=\"font-size:20px;font-weight:800;margin-bottom:4px\">Nova Etapa</div>");
+  h.push("<div style=\"font-size:13px;color:#4A5A72;margin-bottom:16px\">"+(circ?esc(circ.name):"")+"</div>");
+  h.push("<input class=\"inp\" placeholder=\"Nome da etapa *\" value=\""+esc(as.name||"")+"\" oninput=\"if(!S._addStage)S._addStage={};S._addStage.name=this.value\" />");
+  h.push("<input class=\"inp\" type=\"date\" value=\""+(as.date||td())+"\" onchange=\"if(!S._addStage)S._addStage={};S._addStage.date=this.value\" />");
+  h.push("<div style=\"font-size:12px;color:#4A5A72;margin-bottom:6px;font-weight:700\">FORMATO</div><div class=\"grid2\">");
+  [["single","Eliminacao"],["rei_rainha","Rei/Rainha"]].forEach(function(x){
+    var a=as.format===x[0]; h.push("<button data-fmt=\""+x[0]+"\" onclick=\"if(!S._addStage)S._addStage={};S._addStage.format=this.dataset.fmt;renderSheet();\" style=\"padding:11px 8px;border:1.5px solid "+(a?"#C8A84B":"#1C2740")+";border-radius:10px;background:"+(a?"rgba(200,168,75,.1)":"#161E2E")+";color:"+(a?"#C8A84B":"#4A5A72")+";cursor:pointer;font-weight:700;font-size:13px\">"+x[1]+"</button>");
+  });
+  h.push("</div>");
+  if(!circ||circ.categoria===""){
+    h.push("<div style=\"font-size:12px;color:#4A5A72;margin-bottom:6px;font-weight:700\">CATEGORIA</div><div style=\"display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px\">");
+    [["","Aberto"],["Recreativo","Rec"],["Pro","Pro"],["A","A"],["B","B"],["C","C"],["D","D"]].forEach(function(x){
+      var a=as.cat===x[0]; h.push("<button data-cat=\""+x[0]+"\" onclick=\"if(!S._addStage)S._addStage={};S._addStage.cat=this.dataset.cat;renderSheet();\" style=\"padding:5px 12px;border:1.5px solid "+(a?"#FFD700":"#1C2740")+";border-radius:20px;background:"+(a?"rgba(255,215,0,.12)":"transparent")+";color:"+(a?"#FFD700":"#4A5A72")+";cursor:pointer;font-weight:700;font-size:12px\">"+x[1]+"</button>");
+    });
+    h.push("</div>");
+  }
+  if(as.format==="rei_rainha"){
+    h.push("<div class=\"grid2\"><div><div style=\"font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700\">JOGADORES</div><input class=\"inp\" type=\"number\" min=\"4\" value=\""+(as.numPlayers||"")+"\" style=\"margin:0;text-align:center;font-size:18px;font-weight:800\" oninput=\"if(!S._addStage)S._addStage={};S._addStage.numPlayers=this.value\" /></div>");
+    h.push("<div><div style=\"font-size:11px;color:#4A5A72;margin-bottom:5px;font-weight:700\">QUADRAS</div><input class=\"inp\" type=\"number\" min=\"1\" value=\""+(as.numCourts||"1")+"\" style=\"margin:0;text-align:center;font-size:18px;font-weight:800\" oninput=\"if(!S._addStage)S._addStage={};S._addStage.numCourts=this.value\" /></div></div>");
+  }
+  h.push("<div style=\"height:8px\"></div><button class=\"btn-gold\" onclick=\"createStage()\">Criar Etapa</button>");
+  return h.join("");
+}
+function updAS(k,v){ if(!S._addStage)S._addStage={}; S._addStage[k]=v; renderSheet(); }
+
+function createStage() {
+  var as = S._addStage||{};
+  if(!as.name||!as.name.trim()) return;
+  var circuitId = as.circuitId;
+  var stage = {
+    id: uid(), name: as.name.trim(), date: as.date||td(),
+    format: as.format||'single', cat: as.cat||'',
+    numCourts: parseInt(as.numCourts)||1,
+    maxPlayers: as.numPlayers?parseInt(as.numPlayers):null,
+    status: 'registration', players: [], rounds: [], schedule: [],
+    champion: null, results: {}
+  };
+  var u = S.tours.map(function(t){
+    return t.id!==circuitId?t:Object.assign({},t,{stages:(t.stages||[]).concat([stage]),status:'active'});
+  });
+  save('bl_t',u);
+  var upd = u.find(function(x){return x.id===circuitId});
+  set({tours:u, sel:upd, modal:'tournament', _addStage:null});
+  toast_('Etapa "'+stage.name+'" criada! 🏅');
+}
+
+// Open a stage within a circuit
+function openStage(circuitId, stageId) {
+  var circuit = S.tours.find(function(x){return x.id===circuitId});
+  if(!circuit) return;
+  var stage = (circuit.stages||[]).find(function(s){return s.id===stageId});
+  if(!stage) return;
+  // Create a virtual tournament object for reuse of existing UI
+  var virtualT = Object.assign({}, stage, {
+    _isStage: true, _circuitId: circuitId,
+    numCourts: stage.numCourts||1,
+    criteria: stage.criteria||'wins_first'
+  });
+  set({sel: virtualT, modal:'stage', tR:0});
+}
+
+function renderModalStage() {
+  var stage = S.sel;
+  if(!stage||!stage._isStage) return '';
+  var circuit = S.tours.find(function(x){return x.id===stage._circuitId});
+  var h = [];
+  var cat = stage.cat||(circuit&&circuit.categoria)||'';
+  var catLabel = {Pro:'Pró',A:'A',B:'B',C:'C',D:'D','':'Geral'};
+
+  // Header
+  h.push('<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:12px">');
+  h.push('<div data-cid="'+circuit.id+'" onclick="backToCircuit2(this.dataset.cid)" style="cursor:pointer;color:#4A5A72;font-size:13px;padding:4px 0;flex-shrink:0">‹ Circuito</div>');
+  h.push('<div style="flex:1"><div style="font-size:18px;font-weight:800">'+esc(stage.name)+'</div>');
+  h.push('<div style="font-size:12px;color:#4A5A72;margin-top:2px">'+stage.date+(cat?' · Cat. '+catLabel[cat]:'')+'</div></div>');
+  h.push('</div>');
+
+  // Reuse registration or results UI
+  var virtual = Object.assign({}, stage, {
+    format: stage.format,
+    categoria: stage.categoria||'masculino',
+    numCourts: stage.numCourts||1
+  });
+
+  if(stage.status==='registration') {
+    h.push(renderStageReg(stage, circuit));
+  } else if(stage.format==='rei_rainha' && stage.schedule && stage.schedule.length>0) {
+    // Patch sel for renderRR
+    h.push(renderRRStage(stage, circuit));
+  } else if(stage.rounds && stage.rounds.length>0) {
+    h.push(renderBracketStage(stage, circuit));
+  }
+
+  return h.join('');
+}
+
+// Stage registration (mirrors renderReg but saves to circuit)
+function renderStageReg(stage,circuit){
+  var h=[];
+  h.push('<div style="font-size:13px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between"><span>Inscricoes</span><span style="color:#4A5A72">'+stage.players.length+' jog.</span></div>');
+  var avail=S.players.filter(function(p){return stage.players.indexOf(p.id)<0});
+  if(avail.length>0){
+    var opts=avail.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>';}).join("");
+    h.push('<select style="width:100%;background:#06080D;border:1.5px solid #1C2740;border-radius:12px;padding:12px 14px;color:#E2EAF4;font-size:14px;outline:none;margin-bottom:10px" data-cid="'+circuit.id+'" data-sid="'+stage.id+'" onchange="joinStage(this.dataset.cid,this.dataset.sid,this.value);this.selectedIndex=0;"><option value="">+ Inscrever...</option>'+opts+'</select>');
+  }
+  stage.players.forEach(function(pid){
+    h.push('<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#161E2E;border-radius:8px;margin-bottom:5px"><span style="font-weight:600;font-size:14px">'+nm_(pid)+'</span><button data-cid="'+circuit.id+'" data-sid="'+stage.id+'" data-pid="'+pid+'" onclick="leaveStage(this.dataset.cid,this.dataset.sid,this.dataset.pid)" style="background:transparent;border:none;color:#EF4444;cursor:pointer;font-size:15px">x</button></div>');
+  });
+  h.push('<div style="height:12px"></div><button data-cid="'+circuit.id+'" data-sid="'+stage.id+'" onclick="startStage(this.dataset.cid,this.dataset.sid)" class="btn-gold">Iniciar Etapa</button>');
+  return h.join("");
+}
+function joinStage(cid,sid,pid){
+  if(!pid)return;
+  var u=S.tours.map(function(t){return t.id!==cid?t:Object.assign({},t,{stages:(t.stages||[]).map(function(s){return s.id!==sid?s:Object.assign({},s,{players:s.players.concat([pid])})})})});
+  save('bl_t',u);var circuit=u.find(function(x){return x.id===cid});var stage=circuit.stages.find(function(s){return s.id===sid});
+  setS({tours:u,sel:stage?Object.assign({},stage,{_isStage:true,_circuitId:cid}):S.sel});renderSheet();
+  toast_(nm_(pid).replace(/&amp;/g,'&')+' inscrito!');
+}
+function leaveStage(cid,sid,pid){
+  var u=S.tours.map(function(t){return t.id!==cid?t:Object.assign({},t,{stages:(t.stages||[]).map(function(s){return s.id!==sid?s:Object.assign({},s,{players:s.players.filter(function(p){return p!==pid})})})})});
+  save('bl_t',u);var circuit=u.find(function(x){return x.id===cid});var stage=circuit.stages.find(function(s){return s.id===sid});
+  setS({tours:u,sel:stage?Object.assign({},stage,{_isStage:true,_circuitId:cid}):S.sel});renderSheet();
+}
+function startStage(cid,sid){
+  var circuit=S.tours.find(function(x){return x.id===cid});
+  var stage=(circuit.stages||[]).find(function(s){return s.id===sid});
+  if(!stage||stage.players.length<2){toast_('Mínimo 2 jogadores','#EF4444');return}
+  var updStage;
+  if(stage.format==='rei_rainha'){
+    var n=stage.players.length,c=optC(n,stage.numCourts||1);
+    var sched=genSched(stage.players,c,null);
+    updStage=Object.assign({},stage,{status:'active',schedule:sched,activeCourts:c});
+  } else {
+    var rounds=genBracket(stage.players,S.matches);
+    updStage=Object.assign({},stage,{status:'active',rounds:rounds});
+  }
+  var u=S.tours.map(function(t){return t.id!==cid?t:Object.assign({},t,{stages:(t.stages||[]).map(function(s){return s.id!==sid?s:updStage})})});
+  save('bl_t',u);
+  setS({tours:u,sel:Object.assign({},updStage,{_isStage:true,_circuitId:cid}),tR:0});
+  set({});
+  toast_('Etapa iniciada! 🏅');
+}
+
+// Stage bracket rendering (simplified, reuses bracket logic)
+function renderBracketStage(stage,circuit){
+  var h=[],rounds=stage.rounds||[],tR=S.tR;
+  var cur=rounds[tR];
+  if(cur) cur.matches.forEach(function(m){
+    h.push('<div style="background:#0B0F18;border:1px solid '+(m.winnerId?'#22C55E':'#1C2740')+';border-radius:12px;padding:14px;margin-bottom:10px">');
+    h.push('<div style="display:flex;align-items:center;gap:8px"><div style="flex:1;text-align:center;opacity:'+(m.winnerId&&m.winnerId!==m.p1?0.5:1)+'"><div style="font-weight:700">'+(m.p1?nm_(m.p1):'BYE')+'</div></div><div style="font-weight:900;color:'+(m.winnerId?'#C8A84B':'#4A5A72')+';font-size:'+(m.winnerId?20:14)+'px;min-width:48px;text-align:center">'+(m.sA!==null?m.sA+'×'+m.sB:'VS')+'</div><div style="flex:1;text-align:center;opacity:'+(m.winnerId&&m.winnerId!==m.p2?0.5:1)+'"><div style="font-weight:700">'+(m.p2?nm_(m.p2):'BYE')+'</div></div></div>');
+    if(!m.winnerId&&m.p1&&m.p2&&stage.status==='active'){
+      var editing=S.se.mid===m.id;
+      if(editing){
+        h.push('<div style="margin-top:12px"><div class="score-row"><input class="score-inp" type="number" placeholder="0" value="'+S.se.sA+'" data-key="sA" oninput="updSe(this.dataset.key,this.value)"><input class="score-inp" type="number" placeholder="0" value="'+S.se.sB+'" data-key="sB" oninput="updSe(this.dataset.key,this.value)"></div><div style="display:flex;gap:8px"><button onclick="setSe0()" style="flex:1;padding:10px;background:transparent;border:1px solid #1C2740;border-radius:10px;color:#4A5A72;cursor:pointer">Cancelar</button><button data-cid="'+circuit.id+'" data-sid="'+stage.id+'" onclick="recStageScore(this.dataset.cid,this.dataset.sid)" style="flex:2;padding:10px;background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:10px;color:#000;font-weight:800;cursor:pointer">Salvar</button></div></div>');
+      } else {
+        h.push('<button data-skey="'+("stage_"+circuit.id+"_"+stage.id)+'" data-tr="'+tR+'" data-mid="'+m.id+'" data-p1="'+m.p1+'" data-p2="'+m.p2+'" onclick="startEditScoreDA(this)" style="width:100%;margin-top:10px;padding:9px;background:#161E2E;border:1px solid #1C2740;border-radius:10px;color:#4A5A72;cursor:pointer;font-size:13px">Registrar placar</button>');
+      }
+    }
+    h.push('</div>');
+  });
+  return h.join('');
+}
+function renderRRStage(stage, circuit) {
+  var h=[], sched=stage.schedule, tR=S.tR;
+  var st=calcSt(sched,stage.players,stage.criteria||'wins_first');
+  h.push('<div style="margin-bottom:14px"><div style="font-size:12px;color:#C8A84B;font-weight:700;margin-bottom:8px">👑 Classificação da etapa</div>');
+  st.forEach(function(s,i){
+    var cat=stage.cat||(circuit&&circuit.categoria)||'';
+    var pts=stagePoints(i+1,cat);
+    h.push('<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#161E2E;border-radius:8px;margin-bottom:4px">');
+    h.push('<div style="width:24px;text-align:center;font-size:'+(i<3?16:12)+'px">'+(i<3?['👑','🥈','🥉'][i]:'#'+(i+1))+'</div>');
+    h.push('<div style="flex:1;font-weight:600;font-size:13px">'+nm_(s.pid)+'</div>');
+    h.push('<div style="font-size:11px;color:#4A5A72">'+s.wins+'V · '+fmtSaldo(s.saldo)+'</div>');
+    h.push('<div style="color:#FFD700;font-weight:700;font-size:12px">+'+pts+'pts</div>');
+    h.push('</div>');
+  });
+  h.push('</div>');
+  // Rounds
+  h.push('<div class="rounds-row">');
+  sched.forEach(function(r,i){var done=r.courts.every(function(c){return c.sA!==null});h.push('<button onclick="setM({tR:'+i+'})" style="padding:7px 13px;border:1.5px solid '+(tR===i?'#C8A84B':done?'#22C55E':'#1C2740')+';border-radius:20px;background:'+(tR===i?'rgba(200,168,75,.15)':done?'rgba(34,197,94,.1)':'#161E2E')+';color:'+(tR===i?'#C8A84B':done?'#22C55E':'#4A5A72')+';font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0;white-space:nowrap">R'+r.round+(done?' ✓':'')+'</button>')});
+  h.push('</div>');
+  var cur=sched[tR];
+  if(cur){
+    if(cur.sitters&&cur.sitters.length>0){h.push('<div style="margin-bottom:10px;padding:8px 12px;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.3);border-radius:8px;font-size:11px;color:#F97316">⏳ DE FORA: '+cur.sitters.map(function(p){return nm_(p)}).join(', ')+'</div>');}
+    cur.courts.forEach(function(court,ci){
+      var done=court.sA!==null;
+      h.push('<div style="background:#0B0F18;border:1px solid '+(done?'#22C55E':'#1C2740')+';border-radius:12px;padding:12px;margin-bottom:8px">');
+      h.push('<div style="font-size:10px;color:#4A5A72;margin-bottom:6px;font-weight:700">QUADRA '+(ci+1)+'</div>');
+      h.push('<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;text-align:center"><div style="font-size:13px;font-weight:700">'+nm_(court.t1[0])+'</div><div style="font-size:10px;color:#4A5A72">& '+nm_(court.t1[1])+'</div></div><div style="font-weight:900;color:'+(done?'#C8A84B':'#4A5A72')+';font-size:'+(done?18:13)+'px;min-width:48px;text-align:center">'+(done?court.sA+'×'+court.sB:'VS')+'</div><div style="flex:1;text-align:center"><div style="font-size:13px;font-weight:700">'+nm_(court.t2[0])+'</div><div style="font-size:10px;color:#4A5A72">& '+nm_(court.t2[1])+'</div></div></div>');
+      if(!done&&stage.status==='active'){
+        var editing=S.se.cid===court.id;
+        if(editing){h.push('<div style="margin-top:10px"><div class="score-row"><input class="score-inp" type="number" placeholder="0" value="'+S.se.sA+'" data-key="sA" oninput="updSe(this.dataset.key,this.value)"><input class="score-inp" type="number" placeholder="0" value="'+S.se.sB+'" data-key="sB" oninput="updSe(this.dataset.key,this.value)"></div><div style="display:flex;gap:8px"><button onclick="setSe0()" style="flex:1;padding:9px;background:transparent;border:1px solid #1C2740;border-radius:10px;color:#4A5A72;cursor:pointer">Cancelar</button><button data-cid="'+circuit.id+'" data-sid="'+stage.id+'" onclick="recStageRR(this.dataset.cid,this.dataset.sid)" style="flex:2;padding:9px;background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:10px;color:#000;font-weight:800;cursor:pointer">Salvar</button></div></div>');}
+        else{h.push('<button data-cid2="'+circuit.id+'" data-sid2="'+stage.id+'" data-court="'+court.id+'" onclick="seCourtStg(this)" style="width:100%;margin-top:8px;padding:8px;background:#161E2E;border:1px solid #1C2740;border-radius:10px;color:#4A5A72;cursor:pointer;font-size:12px">✏️ Registrar</button>');}
+      }
+      h.push('</div>');
+    });
+  }
+  if(stage.status==='active'){
+    var allDone=sched.every(function(r){return r.courts.every(function(c){return c.sA!==null})});
+    if(allDone) h.push('<button data-cid="'+circuit.id+'" data-sid="'+stage.id+'" onclick="finishStage(this.dataset.cid,this.dataset.sid)" class="btn-gold" style="margin-top:10px">🏅 Finalizar Etapa</button>');
+  }
+  return h.join('');
+}
+
+// Record scores for stages
+function recStageRR(cid,sid){
+  var se=S.se;if(!se.sA||!se.sB)return;
+  var sa=parseInt(se.sA),sb=parseInt(se.sB);
+  if(sa===sb){toast_('Sem empate','#EF4444');return}
+  var u=S.tours.map(function(t){
+    if(t.id!==cid)return t;
+    var stages=(t.stages||[]).map(function(s){
+      if(s.id!==sid)return s;
+      var sched=s.schedule.map(function(r,ri){return ri!==S.tR?r:Object.assign({},r,{courts:r.courts.map(function(c){return c.id!==se.cid?c:Object.assign({},c,{sA:sa,sB:sb})})})});
+      return Object.assign({},s,{schedule:sched});
+    });
+    return Object.assign({},t,{stages:stages});
+  });
+  save('bl_t',u);
+  var circuit=u.find(function(x){return x.id===cid});
+  var stage=circuit.stages.find(function(s){return s.id===sid});
+  setS({tours:u,se:{},sel:Object.assign({},stage,{_isStage:true,_circuitId:cid})});
+  renderSheet();toast_('Salvo! 🎾');
+}
+
+function finishStage(cid,sid){
+  var circuit=S.tours.find(function(x){return x.id===cid});
+  var stage=(circuit.stages||[]).find(function(s){return s.id===sid});
+  if(!stage)return;
+  var results=getStageResults(stage);
+  var champ=null;
+  Object.keys(results).forEach(function(pid){if(results[pid]===1)champ=pid;});
+  var u=S.tours.map(function(t){
+    if(t.id!==cid)return t;
+    var stages=(t.stages||[]).map(function(s){return s.id!==sid?s:Object.assign({},s,{status:'finished',results:results,champion:champ})});
+    return Object.assign({},t,{stages:stages});
+  });
+  save('bl_t',u);
+  var updCircuit=u.find(function(x){return x.id===cid});
+  set({tours:u,sel:updCircuit,modal:'tournament',tR:0});
+  if(champ)toast_('🏅 Etapa concluída! Campeão: '+S.players.find(function(p){return p.id===champ})?.name,'#FFD700');
+  else toast_('Etapa finalizada! 🏅','#FFD700');
+}
+
+function recStageScore(cid,sid){
+  var se=S.se;if(!se.sA||!se.sB)return;
+  var sa=parseInt(se.sA),sb=parseInt(se.sB);
+  if(sa===sb){toast_('Sem empate','#EF4444');return}
+  var wid=sa>sb?se.p1:se.p2;
+  var u=S.tours.map(function(t){
+    if(t.id!==cid)return t;
+    var stages=(t.stages||[]).map(function(s){
+      if(s.id!==sid)return s;
+      var rounds=s.rounds.map(function(r,ri){return ri!==S.tR?r:Object.assign({},r,{matches:r.matches.map(function(m){return m.id!==se.mid?m:Object.assign({},m,{sA:sa,sB:sb,winnerId:wid})})})});
+      var updS=Object.assign({},s,{rounds:rounds});
+      // Check if stage done
+      var last=rounds[rounds.length-1];
+      if(last&&last.matches.every(function(m){return m.winnerId})){
+        var newR=advR(rounds);
+        var champ=newR[newR.length-1].matches.length===1&&newR[newR.length-1].matches[0].winnerId?newR[newR.length-1].matches[0].winnerId:null;
+        if(champ){
+          var results=getStageResults(Object.assign({},updS,{rounds:newR,champion:champ}));
+          updS=Object.assign({},updS,{rounds:newR,champion:champ,status:'finished',results:results});
+          setTimeout(function(){finishStageQuiet(cid,sid,updS)},100);
+        } else {
+          updS=Object.assign({},updS,{rounds:newR});
+          setTimeout(function(){set({tR:S.tR+1})},100);
+        }
+      }
+      return updS;
+    });
+    return Object.assign({},t,{stages:stages});
+  });
+  save('bl_t',u);
+  var circuit=u.find(function(x){return x.id===cid});
+  var stage=circuit.stages.find(function(s){return s.id===sid});
+  setS({tours:u,se:{},sel:Object.assign({},stage,{_isStage:true,_circuitId:cid})});
+  renderSheet();
+}
+function finishStageQuiet(cid,sid,updStage){
+  if(updStage.champion) toast_('🏅 '+S.players.find(function(p){return p.id===updStage.champion})?.name+' venceu a etapa!','#FFD700');
+  var u=S.tours.map(function(t){
+    if(t.id!==cid)return t;
+    var stages=(t.stages||[]).map(function(s){return s.id!==sid?s:updStage});
+    return Object.assign({},t,{stages:stages});
+  });
+  save('bl_t',u);
+  var circuit=u.find(function(x){return x.id===cid});
+  set({tours:u,sel:circuit,modal:'tournament',tR:0});
+}
+
+function selPlayer(id){var p=S.players.find(function(x){return x.id===id});if(p)set({sel:p,modal:'profile'})}
+
+function openEditPlayer(id){
+  var p=S.players.find(function(x){return x.id===id});
+  if(!p)return;
+  setS({np:{name:p.name,city:p.city||'',arena:p.arena||'',gender:p.gender||'',cat:p.cat||'',photo:p.photo||'',racketBrand:p.racketBrand||'',racketModel:p.racketModel||'',bio:p.bio||'',jogosAntes:p.jogosAntes||'',vitoriasAntes:p.vitoriasAntes||'',titulosAntes:Array.isArray(p.titulosAntes)?p.titulosAntes:(p.titulosAntes?[p.titulosAntes]:[]),novoTitulo:'',bracoDominante:p.bracoDominante||'',ladoJogo:p.ladoJogo||''}});
+  set({modal:'editPlayer'});
+}
+function saveEditPlayer(){
+  var np=S.np;if(!np.name.trim())return;
+  var pid=S.sel.id;
+  var u=S.players.map(function(p){return p.id!==pid?p:Object.assign({},p,{name:np.name.trim(),city:np.city.trim(),arena:np.arena.trim(),gender:np.gender||'',cat:np.cat||'',photo:np.photo||p.photo||'',racketBrand:np.racketBrand||'',racketModel:np.racketModel||'',bio:np.bio||'',vitoriasAntes:parseInt(np.vitoriasAntes)||0,titulosAntes:Array.isArray(np.titulosAntes)?np.titulosAntes:[],bracoDominante:np.bracoDominante||'',ladoJogo:np.ladoJogo||''})});
+  save('bl_p',u);
+  set({players:u,modal:'profile',sel:u.find(function(x){return x.id===pid}),np:{name:'',city:'',arena:'',gender:'',cat:'',photo:'',racketBrand:'',racketModel:'',bio:'',jogosAntes:'',vitoriasAntes:'',titulosAntes:[],novoTitulo:'',bracoDominante:'',ladoJogo:''}});
+  toast_('Dados atualizados! ✓');
+}
+function deletePlayer(id){
+  if(!confirm('Apagar jogador? Essa ação não pode ser desfeita.'))return;
+  var u=S.players.filter(function(p){return p.id!==id});
+  save('bl_p',u);
+  set({players:u,modal:null,sel:null});
+  toast_('Jogador removido','#EF4444');
+}
+function renderModalEditPlayer(){
+  var np=S.np,p=S.sel;
+  return '<div style="font-size:20px;font-weight:800;margin-bottom:4px">Editar Jogador</div>'+
+    '<div style="font-size:13px;color:#4A5A72;margin-bottom:20px">'+esc(p?p.name:'')+'</div>'+
+    '<div style="margin-bottom:16px">'+
+    '<div style="font-size:12px;color:#4A5A72;font-weight:700;margin-bottom:8px">FOTO</div>'+
+    '<div onclick="document.getElementById(\'photo-inp\').click()" style="cursor:pointer;display:flex;align-items:center;gap:14px;padding:12px;background:#161E2E;border-radius:12px;border:1.5px dashed #1C2740">'+
+      '<div id="photo-placeholder" style="'+(np.photo?'display:none':'')+'width:64px;height:64px;border-radius:50%;background:#1C2740;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📷</div>'+
+      (np.photo?'<img id="photo-preview" src="'+np.photo+'" style="width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0">':'<img id="photo-preview" src="" style="display:none;width:64px;height:64px;border-radius:50%;object-fit:cover;flex-shrink:0">')+
+      '<div style="color:#4A5A72;font-size:13px">'+(np.photo?'Foto carregada ✓ — toque para trocar':'Toque para adicionar foto')+'</div>'+
+    '</div>'+
+    '<input id="photo-inp" type="file" accept="image/*" style="display:none" onchange="handlePhoto(this)">'+
+  '</div>'+
+    '<input class="inp" placeholder="Nome *" value="'+esc(np.name)+'" oninput="updNp(\'name\',this.value)"/>'+
+    '<input class="inp" placeholder="Arena / Clube" value="'+esc(np.arena)+'" oninput="updNp(\'arena\',this.value)"/>'+
+    '<input class="inp" placeholder="Cidade" value="'+esc(np.city)+'" oninput="updNp(\'city\',this.value)"/>'+
+    '<select class="inp" onchange="updNp(\'gender\',this.value)">'+
+      '<option value=""'+(np.gender===''?' selected':'')+'>Gênero</option>'+
+      '<option value="M"'+(np.gender==='M'?' selected':'')+'>Masculino</option>'+
+      '<option value="F"'+(np.gender==='F'?' selected':'')+'>Feminino</option>'+
+    '</select>'+
+    '<select class="inp" onchange="updNp(\'cat\',this.value)">'+
+      '<option value=""'+(np.cat===''?' selected':'')+'>Categoria</option>'+
+      '<option value="Pro"'+(np.cat==='Pro'?' selected':'')+'>Pró</option>'+
+      '<option value="A"'+(np.cat==='A'?' selected':'')+'>A</option>'+
+      '<option value="B"'+(np.cat==='B'?' selected':'')+'>B</option>'+
+      '<option value="C"'+(np.cat==='C'?' selected':'')+'>C</option>'+
+      '<option value="D"'+(np.cat==='D'?' selected':'')+'>D</option>'+
+    '</select>'+
+    '<input class="inp" placeholder="Marca da raquete" value="'+esc(np.racketBrand)+'" oninput="updNp(\'racketBrand\',this.value)"/>'+
+    '<input class="inp" placeholder="Modelo da raquete" value="'+esc(np.racketModel)+'" oninput="updNp(\'racketModel\',this.value)"/>'+
+    '<textarea class="inp" placeholder="Bio / apresentação" rows="3" oninput="updNp(\'bio\',this.value)" style="resize:none;height:80px">'+esc(np.bio)+'</textarea>'+
+
+    // Títulos list
+    '<div style="background:#161E2E;border-radius:12px;padding:12px;margin-bottom:10px">'+
+    '<div style="font-size:11px;color:#4A5A72;font-weight:700;margin-bottom:8px">TÍTULOS ANTERIORES</div>'+
+    (function(){var t=Array.isArray(np.titulosAntes)?np.titulosAntes:[];var r='';t.forEach(function(title,i){r+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#06080D;border-radius:6px;margin-bottom:4px"><span style="font-size:12px;color:#E2EAF4">🏆 '+esc(title)+'</span><button onclick="removeTitle('+i+')" style="background:transparent;border:none;color:#EF4444;cursor:pointer;font-size:14px;padding:0 4px">×</button></div>';});return r;})()+ 
+    '<div style="display:flex;gap:6px;margin-top:4px">'+
+      '<input id="novo-titulo" class="inp" placeholder="Ex: Campeão Cat. B 2023" value="'+esc(np.novoTitulo||'')+'" style="margin:0;flex:1" oninput="updNp(\'novoTitulo\',this.value)" onkeydown="if(event.key===\'Enter\'){addTitle();event.preventDefault()}"/>'+
+      '<button onclick="addTitle()" style="padding:0 14px;background:linear-gradient(135deg,#C8A84B,#8A6020);border:none;border-radius:10px;color:#000;font-weight:800;cursor:pointer;font-size:18px">+</button>'+
+    '</div>'+
+    '</div>'+
+    '<div style="height:10px"></div>'+
+    '<button class="btn-gold" onclick="saveEditPlayer()">Salvar alterações</button>';
+}
+function renderModalProfile(){
+  var p=S.sel;
+  var s=stats(p.id,S.matches);
+  var hist=bliHist(p.id,S.matches);
+  var h=[];
+  // Totals including pre-app history
+  var totalJogos=s.played;
+  var totalVit=s.wins+(parseInt(p.vitoriasAntes)||0);
+  var totalDer=s.losses;
+  var totalRate=totalJogos>0?Math.round(totalVit/totalJogos*100):0;
+  // Tournaments from app
+  var myTours=S.tours.filter(function(t){return t.status==='finished'&&t.players&&t.players.indexOf(p.id)>=0});
+  var myTitles=myTours.filter(function(t){return t.champion===p.id});
+
+  // Edit / Delete
+  h.push('<div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px">');
+  h.push('<button onclick="openEditPlayer(\''+p.id+'\')" style="background:transparent;border:1px solid #1C2740;border-radius:8px;color:#4A5A72;font-size:12px;padding:6px 12px;cursor:pointer">✏️ Editar</button>');
+  h.push('<button onclick="deletePlayer(\''+p.id+'\')" style="background:transparent;border:1px solid #EF4444;border-radius:8px;color:#EF4444;font-size:12px;padding:6px 12px;cursor:pointer">🗑 Apagar</button>');
+  h.push('</div>');
+
+  // HERO
+  h.push('<div style="text-align:center;margin-bottom:20px;position:relative">');
+  if(p.photo){
+    h.push('<img src="'+p.photo+'" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #C8A84B;margin-bottom:10px">');
+  }else{
+    var icon=p.gender==='F'?'👩':'👨';
+    h.push('<div style="font-size:64px;margin-bottom:6px">'+icon+'</div>');
+  }
+  h.push('<div style="font-size:22px;font-weight:900;letter-spacing:-.5px">'+esc(p.name)+'</div>');
+  var subParts=[];
+  if(p.gender)subParts.push(p.gender==='M'?'Masculino':'Feminino');
+  if(p.cat)subParts.push('<span style="color:#C8A84B;font-weight:700">'+(p.cat==='Pro'?'Pró':p.cat)+'</span>');
+  if(p.bracoDominante)subParts.push(p.bracoDominante);
+  if(p.ladoJogo)subParts.push('Lado '+p.ladoJogo);
+  if(p.arena||p.city)subParts.push(esc(p.arena||p.city));
+  h.push('<div style="font-size:13px;color:#4A5A72;margin-top:4px">'+subParts.join(' · ')+'</div>');
+  if(p.bio)h.push('<div style="font-size:13px;color:#E2EAF4;margin-top:8px;line-height:1.5;padding:0 10px">'+esc(p.bio)+'</div>');
+  h.push('<div style="font-size:28px;font-weight:900;color:#C8A84B;margin-top:10px">'+bli(p.id,S.matches)+' BLI</div>');
+  h.push('</div>');
+
+  // STATS TOTAL (app + histórico)
+  h.push('<div style="font-size:11px;color:#4A5A72;font-weight:700;margin-bottom:8px">ESTATÍSTICAS TOTAIS</div>');
+  h.push('<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px">');
+  var showHist=(parseInt(p.vitoriasAntes)||0)>0;
+  [['Jogos',totalJogos+(showHist?'+'+(p.vitoriasAntes):''),'#E2EAF4'],['Vitórias',totalVit,'#22C55E'],['Derrotas',totalDer,'#EF4444'],['% Vit.',totalRate+'%','#C8A84B']].forEach(function(x){
+    h.push('<div style="background:#161E2E;border-radius:10px;padding:10px 4px;text-align:center"><div style="font-size:18px;font-weight:900;color:'+x[2]+'">'+x[1]+'</div><div style="font-size:10px;color:#4A5A72;margin-top:2px">'+x[0]+'</div></div>');
+  });
+  h.push('</div>');
+
+  // BLI CHART
+  if(hist.length>1){
+    h.push('<div style="margin-bottom:16px;background:#161E2E;border-radius:12px;padding:12px 0 8px"><div style="font-size:11px;font-weight:700;padding-left:14px;margin-bottom:8px;color:#4A5A72">EVOLUÇÃO BLI</div>'+miniChart(hist)+'</div>');
+  }
+
+  // RAQUETE
+  if(p.racketBrand||p.racketModel){
+    h.push('<div style="background:#161E2E;border-radius:12px;padding:14px;margin-bottom:16px">');
+    h.push('<div style="font-size:11px;color:#4A5A72;font-weight:700;margin-bottom:8px">🏸 RAQUETE</div>');
+    h.push('<div style="font-size:15px;font-weight:700">'+esc(p.racketBrand||'')+(p.racketModel?' <span style="color:#C8A84B">'+esc(p.racketModel)+'</span>':'')+'</div>');
+    h.push('</div>');
+  }
+
+  // TORNEIOS JOGADOS
+  if(myTours.length>0){
+    h.push('<div style="font-size:11px;color:#4A5A72;font-weight:700;margin-bottom:8px">🏆 TORNEIOS ('+myTours.length+')</div>');
+    h.push('<div style="margin-bottom:16px">');
+    myTours.slice().reverse().forEach(function(t){
+      var isChamp=t.champion===p.id;
+      h.push('<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:#161E2E;border-radius:8px;margin-bottom:5px">');
+      h.push('<span style="font-size:16px">'+(isChamp?'🏆':'🎾')+'</span>');
+      h.push('<div style="flex:1"><div style="font-size:13px;font-weight:600">'+esc(t.name)+'</div><div style="font-size:11px;color:#4A5A72">'+t.date+(t.arena?' · '+esc(t.arena):'')+'</div></div>');
+      if(isChamp)h.push('<span style="font-size:11px;font-weight:700;color:#C8A84B">CAMPEÃO</span>');
+      h.push('</div>');
+    });
+    h.push('</div>');
+  }
+
+  // TÍTULOS HISTÓRICOS
+  var tArr=Array.isArray(p.titulosAntes)?p.titulosAntes:(p.titulosAntes?[p.titulosAntes]:[]);
+  if(tArr.length>0){
+    h.push('<div style="background:rgba(200,168,75,.08);border:1px solid rgba(200,168,75,.25);border-radius:12px;padding:12px 14px;margin-bottom:16px">');
+    h.push('<div style="font-size:11px;color:#C8A84B;font-weight:700;margin-bottom:8px">🌟 TÍTULOS ANTERIORES</div>');
+    tArr.forEach(function(t){
+      h.push('<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="color:#C8A84B">🏆</span><span style="font-size:13px;color:#E2EAF4">'+esc(t)+'</span></div>');
+    });
+    h.push('</div>');
+  }
+
+  // CONQUISTAS APP
+  var badges=[];
+  if(totalVit>=1)badges.push('🎯 Primeira vitória');
+  if(totalVit>=10)badges.push('🔥 10 vitórias');
+  if(totalVit>=25)badges.push('💎 25 vitórias');
+  if(totalJogos>=20)badges.push('⚡ Veterano');
+  if(myTitles.length>=1)badges.push('🏆 Campeão');
+  if(myTitles.length>=3)badges.push('👑 Multi-Campeão');
+  if(badges.length){
+    h.push('<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:#4A5A72;margin-bottom:8px">CONQUISTAS</div><div style="display:flex;flex-wrap:wrap;gap:6px">');
+    badges.forEach(function(b){h.push('<span style="background:rgba(200,168,75,.15);color:#C8A84B;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">'+b+'</span>')});
+    h.push('</div></div>');
+  }
+
+  // ÚLTIMAS PARTIDAS
+  var myMatches=S.matches.filter(function(m){return m.pA===p.id||m.pB===p.id}).slice(-5).reverse();
+  if(myMatches.length){
+    h.push('<div style="font-size:11px;font-weight:700;color:#4A5A72;margin-bottom:8px">ÚLTIMAS PARTIDAS</div>');
+    myMatches.forEach(function(m){
+      var won=m.winnerId===p.id;var opp=m.pA===p.id?m.pB:m.pA;
+      var myS=m.pA===p.id?m.sA:m.sB,opS=m.pA===p.id?m.sB:m.sA;
+      h.push('<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#161E2E;border-radius:8px;margin-bottom:6px">');
+      h.push('<span style="font-size:14px;font-weight:700;color:'+(won?'#22C55E':'#EF4444')+'">'+(won?'V':'D')+'</span>');
+      h.push('<div style="flex:1"><div style="font-size:13px;font-weight:600">vs '+nm_(opp)+'</div><div style="font-size:11px;color:#4A5A72">'+(m.arena||'—')+' · '+m.date+'</div></div>');
+      h.push('<div style="font-weight:800;font-size:14px;color:'+(won?'#22C55E':'#EF4444')+'">'+myS+'×'+opS+'</div>');
+      h.push('</div>');
+    });
+  }
+  return h.join('');
+}
+
+// ── INIT ──
+// Carrega do localStorage enquanto aguarda Firebase
+var stored_p=load('bl_p');var stored_m=load('bl_m');var stored_t=load('bl_t');
+if(stored_p)S.players=stored_p;
+if(stored_m)S.matches=stored_m;
+if(stored_t)S.tours=stored_t;
+render();
+
+// Listener Firebase — sincroniza em tempo real com todos os dispositivos
+fbdb.ref('/').on('value', function(snapshot){
+  var data=snapshot.val()||{};
+  var changed=false;
+  if(data.bl_p){S.players=data.bl_p;changed=true}
+  if(data.bl_m){S.matches=data.bl_m;changed=true}
+  if(data.bl_t){S.tours=data.bl_t;changed=true}
+  if(changed)render();
+}, function(err){
+  console.warn('Firebase offline, usando localStorage');
+});
+</script>
+
+
+<script>
+(function(){
+  // Draw BL icon on canvas
+  function makeIcon(size){
+    var c=document.createElement('canvas');
+    c.width=c.height=size;
+    var ctx=c.getContext('2d');
+    var s=size, gold='#FFD700', bw=Math.max(3,s/30);
+    // black circle
+    ctx.beginPath();ctx.arc(s/2,s/2,s/2,0,Math.PI*2);ctx.fillStyle='#000';ctx.fill();
+    // gold ring
+    ctx.beginPath();ctx.arc(s/2,s/2,s/2-bw/2,0,Math.PI*2);
+    ctx.strokeStyle=gold;ctx.lineWidth=bw;ctx.stroke();
+    ctx.fillStyle=gold;
+    var sw=Math.max(2,s/22), top=s*0.25, bot=s*0.75, mid=(top+bot)/2;
+    // B stem
+    var bx=s*0.20;
+    ctx.fillRect(bx,top,sw,bot-top);
+    // B top bump
+    var bw2=s*0.15;
+    ctx.fillRect(bx+sw,top,bw2,mid-top-sw/2);
+    ctx.beginPath();ctx.arc(bx+sw+bw2,top+(mid-top-sw/2)/2,(mid-top-sw/2)/2,Math.PI*1.5,Math.PI*0.5);ctx.fill();
+    ctx.fillRect(bx,top,bw2+sw,sw);
+    ctx.fillRect(bx,mid-sw/2,bw2+sw,sw);
+    // B bottom bump
+    var bw3=s*0.18;
+    ctx.fillRect(bx+sw,mid+sw/2,bw3,(bot-mid-sw/2));
+    ctx.beginPath();ctx.arc(bx+sw+bw3,mid+sw/2+(bot-mid-sw/2)/2,(bot-mid-sw/2)/2,Math.PI*1.5,Math.PI*0.5);ctx.fill();
+    ctx.fillRect(bx,bot-sw,bw3+sw,sw);
+    // L
+    var lx=s*0.57;
+    ctx.fillRect(lx,top,sw,bot-top);
+    ctx.fillRect(lx,bot-sw,s*0.20,sw);
+    // ball
+    var br=Math.max(3,s/22);
+    ctx.beginPath();ctx.arc(s*0.74,s*0.24,br,0,Math.PI*2);ctx.fill();
+    // net line
+    ctx.globalAlpha=0.5;
+    ctx.fillRect(s*0.225,s*0.83,s*0.55,Math.max(2,s/80)*2);
+    ctx.globalAlpha=1;
+    return c;
+  }
+
+  // Create 192 and 512 icons
+  var c192=makeIcon(192), c512=makeIcon(512);
+
+  // Apple touch icon (iOS)
+  var link=document.createElement('link');
+  link.rel='apple-touch-icon';
+  link.href=c192.toDataURL('image/png');
+  document.head.appendChild(link);
+
+  // Dynamic manifest with inline icon data
+  var manifest={
+    name:'BeachLine™ App',
+    short_name:'BeachLine',
+    description:'Gestão de torneios e circuitos de beach tennis',
+    start_url:location.pathname,
+    display:'standalone',
+    background_color:'#000000',
+    theme_color:'#000000',
+    orientation:'portrait-primary',
+    lang:'pt-BR',
+    icons:[
+      {src:c192.toDataURL('image/png'),sizes:'192x192',type:'image/png',purpose:'any maskable'},
+      {src:c512.toDataURL('image/png'),sizes:'512x512',type:'image/png',purpose:'any maskable'}
+    ]
+  };
+  var blob=new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'});
+  var mlink=document.createElement('link');
+  mlink.rel='manifest';
+  mlink.href=URL.createObjectURL(blob);
+  document.head.appendChild(mlink);
+
+  // Install banner
+  var deferredPrompt;
+  var banner=document.getElementById('pwa-banner');
+  window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault(); deferredPrompt=e;
+    if(banner) banner.style.display='block';
+  });
+  var btn=document.getElementById('pwa-install-btn');
+  if(btn) btn.addEventListener('click',function(){
+    if(deferredPrompt){
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function(){
+        deferredPrompt=null;
+        if(banner) banner.style.display='none';
+      });
+    }
+  });
+  window.addEventListener('appinstalled',function(){
+    if(banner) banner.style.display='none';
+  });
+})();
+</script>
+</body>
+</html>
