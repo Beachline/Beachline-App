@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#07080A"/>
+<meta name="description" content="BeachLine™ — Gestão de Torneios de Areia"/>
+<title>BeachLine™</title>
+<link rel="manifest" href="manifest.json"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#07080A;color:#E8EAF0;font-family:system-ui,-apple-system,sans-serif;overflow-x:hidden;}
+#root{min-height:100vh;}
+select option{background:#181C24;color:#E8EAF0;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:#111318;}
+::-webkit-scrollbar-thumb{background:#252A35;border-radius:2px;}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}
+</style>
+</head>
+<body>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;">
+<div style="font-size:2rem;font-weight:900;"><span style="color:#E8EAF0">Beach</span><span style="color:#F5C842">Line™</span></div>
+<div style="color:#5A6070;font-size:.8rem;">Carregando...</div>
+</div></div>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel" data-presets="react,env">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+// ─── PALETTE ──────────────────────────────────────────────────────────────────
+const C = {
+  bg:"#07080A",panel:"#111318",card:"#181C24",border:"#252A35",
+  gold:"#F5C842",teal:"#00C9A7",red:"#E84855",blue:"#4A90D9",
+  purple:"#9B59B6",orange:"#F5874A",text:"#E8EAF0",muted:"#5A6070",dim:"#1E2230",
+};
+const CATS=["Pro","A","B","C","D"];
+const GENDERS=["Masculino","Feminino","Misto"];
+const SIDES=["Direita","Esquerda","Ambos"];
+const DOMINANTS=["Destro","Canhoto"];
+const T_TYPES=[
+  {key:"super8",label:"Super 8"},
+  {key:"dance",label:"Dança das Quadras"},
+  {key:"ranked",label:"Ranqueado"},
+  {key:"elim",label:"Eliminação Simples"},
+  {key:"doubles_fixed",label:"Duplas Fixas"},
+  {key:"doubles_draw",label:"Duplas Sorteadas"},
+];
+const PRIZE_PTS={1:100,2:70,3:50,4:30};
+
+// ─── SEED DATA ────────────────────────────────────────────────────────────────
+const SEED_PLAYERS=[
+  {id:"p1",name:"Lucas Alves",age:28,height:182,weight:78,side:"Direita",dominant:"Destro",racket:"Babolat Air Viper",photo:"",category:"Pro",gender:"Masculino",points:{Masculino:1240,Feminino:0,Misto:320}},
+  {id:"p2",name:"Rafael Costa",age:32,height:175,weight:72,side:"Esquerda",dominant:"Destro",racket:"Head Delta Pro",photo:"",category:"A",gender:"Masculino",points:{Masculino:980,Feminino:0,Misto:210}},
+  {id:"p3",name:"Pedro Lima",age:25,height:178,weight:75,side:"Direita",dominant:"Destro",racket:"Wilson Carbon",photo:"",category:"A",gender:"Masculino",points:{Masculino:860,Feminino:0,Misto:190}},
+  {id:"p4",name:"Camila Souza",age:24,height:168,weight:60,side:"Direita",dominant:"Destro",racket:"Adidas TX",photo:"",category:"Pro",gender:"Feminino",points:{Masculino:0,Feminino:1150,Misto:290}},
+  {id:"p5",name:"Ana Paula",age:29,height:165,weight:58,side:"Esquerda",dominant:"Canhoto",racket:"Babolat Air Viper",photo:"",category:"A",gender:"Feminino",points:{Masculino:0,Feminino:920,Misto:180}},
+  {id:"p6",name:"Fernanda Rocha",age:27,height:172,weight:63,side:"Direita",dominant:"Destro",racket:"Head Speed",photo:"",category:"B",gender:"Feminino",points:{Masculino:0,Feminino:740,Misto:140}},
+  {id:"p7",name:"Bruno Martins",age:31,height:180,weight:80,side:"Direita",dominant:"Destro",racket:"Wilson Ultra",photo:"",category:"B",gender:"Masculino",points:{Masculino:720,Feminino:0,Misto:160}},
+  {id:"p8",name:"Diego Santos",age:26,height:177,weight:74,side:"Ambos",dominant:"Destro",racket:"Babolat Air",photo:"",category:"C",gender:"Masculino",points:{Masculino:420,Feminino:0,Misto:80}},
+];
+const SEED_TOURNAMENTS=[
+  {id:"t1",name:"Open Lorena Verão 2025",type:"super8",category:"Pro",gender:"Masculino",status:"finished",date:"2025-02-15",courts:4,registrations:["p1","p2","p3","p7"],rounds:[{round:1,matches:[{id:"m1",p1:"p1",p2:"p2",score1:6,score2:3,winner:"p1",court:1},{id:"m2",p1:"p3",p2:"p7",score1:4,score2:6,winner:"p7",court:2}]},{round:2,matches:[{id:"m3",p1:"p1",p2:"p7",score1:6,score2:4,winner:"p1",court:1}]}],champion:"p1",pairs:[],courtPositions:{}},
+  {id:"t2",name:"Circuito Feminino Primavera",type:"ranked",category:"A",gender:"Feminino",status:"open",date:"2026-08-10",courts:2,registrations:["p4","p5"],rounds:[],champion:null,pairs:[],courtPositions:{}},
+];
+const SEED_MSGS={general:[{id:"m1",from:"p1",text:"Galera, torneio sábado! Quem confirma?",ts:Date.now()-3600000},{id:"m2",from:"p4",text:"Eu! 🎾",ts:Date.now()-1800000}]};
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+const uid=()=>Math.random().toString(36).slice(2,9);
+const fmtDate=d=>d?new Date(d).toLocaleDateString("pt-BR"):"—";
+const catColor=c=>({Pro:C.gold,A:C.teal,B:C.blue,C:C.purple,D:C.muted}[c]||C.muted);
+const genColor=g=>({Masculino:C.blue,Feminino:C.red,Misto:C.purple}[g]||C.muted);
+
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function generateBracket(players,type,courts){
+  const ps=shuffle(players);
+  if(type==="super8"||type==="ranked"){
+    const arr=ps.length%2!==0?[...ps,"BYE"]:[...ps];
+    const n=arr.length,rounds=[];
+    for(let r=0;r<n-1;r++){
+      const matches=[];
+      for(let m=0;m<n/2;m++){
+        const p1=arr[m],p2=arr[n-1-m];
+        if(p1!=="BYE"&&p2!=="BYE") matches.push({id:uid(),p1,p2,score1:null,score2:null,winner:null,court:(m%courts)+1});
+      }
+      rounds.push({round:r+1,matches});
+      const last=arr.pop();arr.splice(1,0,last);
+    }
+    return rounds;
+  }
+  if(type==="dance"){
+    // Dança das Quadras: players start on courts, rotate each round
+    const courtPlayers={};
+    for(let i=0;i<courts;i++) courtPlayers[i+1]=[];
+    ps.forEach((p,i)=>courtPlayers[(i%courts)+1].push(p));
+    // Initial round: each court plays internal matches
+    const round1={round:1,matches:[]};
+    for(let c=1;c<=courts;c++){
+      const cp=courtPlayers[c];
+      for(let i=0;i<cp.length-1;i+=2)
+        round1.matches.push({id:uid(),p1:cp[i],p2:cp[i+1]||"BYE",score1:null,score2:null,winner:null,court:c,dance:true});
+    }
+    return [round1];
+  }
+  // elimination
+  let current=ps;
+  const rounds=[];
+  let rn=1;
+  while(current.length>1){
+    const matches=[];
+    for(let i=0;i<current.length;i+=2){
+      if(i+1<current.length) matches.push({id:uid(),p1:current[i],p2:current[i+1],score1:null,score2:null,winner:null,court:((i/2)%courts)+1});
+    }
+    rounds.push({round:rn++,matches});
+    current=matches.map(()=>"TBD");
+  }
+  return rounds;
+}
+
+function advanceDance(rounds,courts,registrations){
+  const lastR=rounds[rounds.length-1];
+  if(!lastR||lastR.matches.some(m=>m.winner===null)) return rounds;
+  // Build court assignments after rotation
+  const courtWinners={},courtLosers={};
+  lastR.matches.forEach(m=>{
+    if(!courtWinners[m.court]) courtWinners[m.court]=[];
+    if(!courtLosers[m.court]) courtLosers[m.court]=[];
+    courtWinners[m.court].push(m.winner);
+    courtLosers[m.court].push(m.winner===m.p1?m.p2:m.p1);
+  });
+  // Rotation rule: winner of court N plays at court N (or N+1 if court 1), loser goes down
+  const newCourt={};
+  for(let c=1;c<=courts;c++){
+    const winners=courtWinners[c]||[];
+    const losers=courtLosers[c]||[];
+    winners.forEach(p=>{newCourt[p]=Math.min(courts,c+1);});
+    losers.forEach(p=>{newCourt[p]=Math.max(1,c-1);});
+  }
+  // Build next round
+  const courtGroups={};
+  Object.entries(newCourt).forEach(([p,c])=>{
+    if(!courtGroups[c]) courtGroups[c]=[];
+    courtGroups[c].push(p);
+  });
+  const nextMatches=[];
+  for(let c=1;c<=courts;c++){
+    const cp=courtGroups[c]||[];
+    for(let i=0;i<cp.length;i+=2){
+      if(i+1<cp.length) nextMatches.push({id:uid(),p1:cp[i],p2:cp[i+1],score1:null,score2:null,winner:null,court:c,dance:true});
+    }
+  }
+  if(nextMatches.length===0) return rounds;
+  const nextRound={round:lastR.round+1,matches:nextMatches};
+  return [...rounds,nextRound];
+}
+
+function generateDoublesDraw(players){
+  const s=shuffle(players);
+  const pairs=[];
+  for(let i=0;i<s.length;i+=2) pairs.push(i+1<s.length?[s[i],s[i+1]]:[s[i],null]);
+  return pairs;
+}
+
+function getStandings(t){
+  const stats={};
+  t.registrations.forEach(id=>{stats[id]={wins:0,losses:0,pts:0,gf:0,ga:0};});
+  t.rounds.forEach(r=>r.matches.forEach(m=>{
+    if(m.winner&&m.score1!==null&&m.p1!=="BYE"&&m.p2!=="BYE"){
+      stats[m.p1]=stats[m.p1]||{wins:0,losses:0,pts:0,gf:0,ga:0};
+      stats[m.p2]=stats[m.p2]||{wins:0,losses:0,pts:0,gf:0,ga:0};
+      if(m.winner===m.p1){stats[m.p1].wins++;stats[m.p1].pts+=3;stats[m.p2].losses++;}
+      else{stats[m.p2].wins++;stats[m.p2].pts+=3;stats[m.p1].losses++;}
+      stats[m.p1].gf+=m.score1;stats[m.p1].ga+=m.score2;
+      stats[m.p2].gf+=m.score2;stats[m.p2].ga+=m.score1;
+    }
+  }));
+  return Object.entries(stats).sort((a,b)=>b[1].pts-a[1].pts||(b[1].gf-b[1].ga)-(a[1].gf-a[1].ga)).map(([id,s])=>({id,...s}));
+}
+
+// ─── STORAGE ─────────────────────────────────────────────────────────────────
+async function load(k){try{const r=await window.storage.get(k);return r?JSON.parse(r.value):null;}catch{return null;}}
+async function save(k,v){try{await window.storage.set(k,JSON.stringify(v));}catch{}}
+
+// ─── PDF EXPORT ──────────────────────────────────────────────────────────────
+function exportPDF(tournament,players){
+  const getP=id=>players.find(p=>p.id===id);
+  const standings=getStandings(tournament);
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${tournament.name}</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px;color:#111;}h1{font-size:18px;border-bottom:2px solid #F5C842;padding-bottom:8px;}
+  h2{font-size:13px;margin-top:20px;color:#444;}table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;}
+  th{background:#F5C842;padding:5px 8px;text-align:left;}td{padding:5px 8px;border-bottom:1px solid #ddd;}
+  .badge{display:inline-block;background:#eee;border-radius:3px;padding:1px 6px;font-size:10px;margin:1px;}
+  .court{font-size:10px;color:#888;}</style></head><body>
+  <h1>🏆 ${tournament.name}</h1>
+  <div class="badge">${tournament.category}</div>
+  <div class="badge">${tournament.gender}</div>
+  <div class="badge">${T_TYPES.find(t=>t.key===tournament.type)?.label}</div>
+  <div class="badge">${fmtDate(tournament.date)}</div>
+  <div class="badge">${tournament.courts} quadras</div>
+  ${tournament.champion?`<p><strong>🥇 Campeão: ${getP(tournament.champion)?.name||""}</strong></p>`:""}
+  <h2>📊 Classificação</h2>
+  <table><tr><th>#</th><th>Atleta</th><th>V</th><th>D</th><th>Saldo</th><th>Pts</th></tr>
+  ${standings.map((s,i)=>`<tr><td>${i+1}</td><td>${getP(s.id)?.name||s.id}</td><td>${s.wins}</td><td>${s.losses}</td><td>${s.gf-s.ga}</td><td><strong>${s.pts}</strong></td></tr>`).join("")}
+  </table>
+  ${tournament.rounds.map(r=>`<h2>Rodada ${r.round}</h2>
+  <table><tr><th>Quadra</th><th>Atleta A</th><th>Placar</th><th>Atleta B</th><th>Vencedor</th></tr>
+  ${r.matches.map(m=>`<tr><td>${m.court||"-"}</td><td>${getP(m.p1)?.name||m.p1}</td>
+  <td>${m.score1!==null?`${m.score1}×${m.score2}`:"-"}</td>
+  <td>${getP(m.p2)?.name||m.p2}</td>
+  <td>${m.winner?getP(m.winner)?.name||"":"-"}</td></tr>`).join("")}
+  </table>`).join("")}
+  ${tournament.pairs?.length?`<h2>Duplas</h2><table><tr><th>#</th><th>Dupla</th></tr>
+  ${tournament.pairs.map((pair,i)=>`<tr><td>${i+1}</td><td>${pair.map(id=>getP(id)?.name||"").join(" & ")}</td></tr>`).join("")}</table>`:""}
+  <p style="font-size:9px;color:#aaa;margin-top:30px;">Gerado por BeachLine™ App · ${new Date().toLocaleString("pt-BR")}</p>
+  </body></html>`;
+  const w=window.open("","_blank");
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),400);
+}
+
+// ─── COMPONENTS ──────────────────────────────────────────────────────────────
+const Badge=({children,color=C.gold})=>(
+  <span style={{background:color+"22",color,border:`1px solid ${color}44`,borderRadius:4,padding:"2px 8px",fontSize:".6rem",fontWeight:700,letterSpacing:.8}}>{children}</span>
+);
+const Pill=({children,active,color=C.gold,onClick})=>(
+  <button onClick={onClick} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${active?color:C.border}`,background:active?color+"22":C.panel,color:active?color:C.muted,fontSize:".63rem",fontWeight:600,cursor:"pointer",transition:"all .15s",whiteSpace:"nowrap"}}>{children}</button>
+);
+const Input=({label,value,onChange,type="text",placeholder="",style={}})=>(
+  <div style={{marginBottom:10}}>
+    {label&&<div style={{fontSize:".6rem",color:C.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>{label}</div>}
+    <input value={value} onChange={e=>onChange(e.target.value)} type={type} placeholder={placeholder}
+      style={{width:"100%",boxSizing:"border-box",background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 12px",color:C.text,fontSize:".78rem",outline:"none",...style}}/>
+  </div>
+);
+const Select=({label,value,onChange,options})=>(
+  <div style={{marginBottom:10}}>
+    {label&&<div style={{fontSize:".6rem",color:C.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:1}}>{label}</div>}
+    <select value={value} onChange={e=>onChange(e.target.value)}
+      style={{width:"100%",background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"9px 12px",color:C.text,fontSize:".78rem",outline:"none"}}>
+      {options.map(o=><option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+    </select>
+  </div>
+);
+const Btn=({children,onClick,color=C.gold,small,full,variant="solid",disabled,style={}})=>(
+  <button onClick={onClick} disabled={disabled}
+    style={{padding:small?"6px 14px":"10px 20px",borderRadius:8,border:`1px solid ${color}`,background:variant==="outline"?"transparent":color,color:variant==="outline"?color:"#000",fontWeight:700,fontSize:small?".66rem":".75rem",cursor:disabled?"not-allowed":"pointer",width:full?"100%":undefined,opacity:disabled?.5:1,transition:"all .15s",display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,...style}}>
+    {children}
+  </button>
+);
+const Card=({children,style={}})=>(
+  <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14,marginBottom:10,...style}}>{children}</div>
+);
+const STitle=({children,style={}})=>(
+  <div style={{fontSize:".57rem",color:C.muted,letterSpacing:3,textTransform:"uppercase",marginBottom:8,marginTop:4,...style}}>{children}</div>
+);
+const Avatar=({name,photo,size=40,color=C.gold})=>(
+  <div style={{width:size,height:size,borderRadius:"50%",background:photo?"transparent":color+"22",border:`2px solid ${color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.38,fontWeight:700,color,flexShrink:0,overflow:"hidden"}}>
+    {photo?<img src={photo} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:name?.charAt(0).toUpperCase()}
+  </div>
+);
+const BackBtn=({onBack,label="Voltar"})=>(
+  <button onClick={onBack} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:`1px solid ${C.border}`,borderRadius:20,padding:"5px 12px",color:C.muted,fontSize:".65rem",fontWeight:600,cursor:"pointer"}}>
+    ← {label}
+  </button>
+);
+const PageHeader=({title,onBack,backLabel,right})=>(
+  <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 0 12px",justifyContent:"space-between"}}>
+    <div style={{display:"flex",alignItems:"center",gap:10}}>
+      {onBack&&<BackBtn onBack={onBack} label={backLabel}/>}
+      <div style={{fontWeight:900,color:C.text,fontSize:".95rem"}}>{title}</div>
+    </div>
+    {right&&<div>{right}</div>}
+  </div>
+);
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+function NotifBell({notifs,onClear}){
+  const [open,setOpen]=useState(false);
+  const unread=notifs.filter(n=>!n.read).length;
+  return(
+    <div style={{position:"relative"}}>
+      <button onClick={()=>setOpen(o=>!o)} style={{background:"none",border:"none",cursor:"pointer",fontSize:"1.2rem",position:"relative"}}>
+        🔔
+        {unread>0&&<span style={{position:"absolute",top:-4,right:-4,background:C.red,color:"#fff",borderRadius:"50%",width:14,height:14,fontSize:".5rem",fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{unread}</span>}
+      </button>
+      {open&&(
+        <div style={{position:"absolute",right:0,top:36,width:260,background:C.panel,border:`1px solid ${C.border}`,borderRadius:10,boxShadow:"0 8px 32px #000a",zIndex:300}}>
+          <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontWeight:700,color:C.text,fontSize:".78rem"}}>Notificações</span>
+            <button onClick={()=>{onClear();setOpen(false);}} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:".65rem"}}>Limpar</button>
+          </div>
+          <div style={{maxHeight:260,overflowY:"auto"}}>
+            {notifs.length===0&&<div style={{padding:20,color:C.muted,textAlign:"center",fontSize:".75rem"}}>Nenhuma notificação</div>}
+            {[...notifs].reverse().map(n=>(
+              <div key={n.id} style={{padding:"10px 14px",borderBottom:`1px solid ${C.dim}`,background:n.read?"transparent":C.gold+"08"}}>
+                <div style={{fontSize:".72rem",color:C.text}}>{n.text}</div>
+                <div style={{fontSize:".58rem",color:C.muted,marginTop:2}}>{new Date(n.ts).toLocaleString("pt-BR")}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
+function AdminScreen({players,setPlayers,tournaments,setTournaments,onBack,addNotif}){
+  const [authed,setAuthed]=useState(false);
+  const [pw,setPw]=useState("");
+  const [tab,setTab]=useState("players");
+  const [editPlayer,setEditPlayer]=useState(null);
+
+  if(!authed) return(
+    <div style={{padding:"0 14px"}}>
+      <PageHeader title="⚙️ Admin" onBack={onBack} backLabel="Menu"/>
+      <Card style={{textAlign:"center",marginTop:20}}>
+        <div style={{fontSize:"2rem",marginBottom:8}}>🔐</div>
+        <div style={{color:C.muted,fontSize:".8rem",marginBottom:14}}>Acesso restrito a organizadores</div>
+        <Input label="Senha" type="password" value={pw} onChange={setPw} placeholder="senha admin"/>
+        <Btn full onClick={()=>{if(pw==="admin123") setAuthed(true);}}>Entrar</Btn>
+        <div style={{fontSize:".62rem",color:C.dim,marginTop:8}}>Demo: admin123</div>
+      </Card>
+    </div>
+  );
+
+  function awardPoints(playerId,gender,pts){
+    setPlayers(prev=>prev.map(p=>p.id!==playerId?p:{...p,points:{...p.points,[gender]:(p.points?.[gender]||0)+pts}}));
+    const pl=players.find(p=>p.id===playerId);
+    addNotif(`+${pts} pts ${gender} para ${pl?.name}`);
+  }
+  function deletePlayer(id){setPlayers(prev=>prev.filter(p=>p.id!==id));}
+  function deleteTournament(id){setTournaments(prev=>prev.filter(t=>t.id!==id));}
+  function changeCategory(pid,cat){setPlayers(prev=>prev.map(p=>p.id!==pid?p:{...p,category:cat}));}
+  function finalizeTournament(t){
+    const st=getStandings(t);
+    let updated={...t,status:"finished",champion:st[0]?.id||null};
+    setTournaments(prev=>prev.map(x=>x.id!==t.id?x:updated));
+    if(st[0]) addNotif(`Torneio "${t.name}" finalizado. Campeão: ${players.find(p=>p.id===st[0]?.id)?.name||"?"}`);
+    // Award points
+    setPlayers(prev=>prev.map(p=>{
+      const pos=st.findIndex(s=>s.id===p.id)+1;
+      const bonus=PRIZE_PTS[pos]||0;
+      if(!bonus) return p;
+      return {...p,points:{...p.points,[t.gender]:(p.points?.[t.gender]||0)+bonus}};
+    }));
+  }
+
+  return(
+    <div style={{padding:"0 14px 90px"}}>
+      <PageHeader title="⚙️ Painel Admin" onBack={onBack} backLabel="Menu"/>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        {["players","tournaments","points"].map(tb=>(
+          <Pill key={tb} active={tab===tb} onClick={()=>setTab(tb)}>{tb==="players"?"Atletas":tb==="tournaments"?"Torneios":"Pontuação"}</Pill>
+        ))}
+      </div>
+
+      {tab==="players"&&(
+        <>
+          <STitle>Gerenciar Atletas</STitle>
+          {players.map(p=>(
+            <Card key={p.id} style={{display:"flex",alignItems:"center",gap:10}}>
+              <Avatar name={p.name} size={36}/>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,color:C.text,fontSize:".8rem"}}>{p.name}</div>
+                <div style={{display:"flex",gap:4,marginTop:2,flexWrap:"wrap"}}>
+                  <Badge color={catColor(p.category)}>{p.category}</Badge>
+                  <Badge color={genColor(p.gender)}>{p.gender}</Badge>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <select value={p.category} onChange={e=>changeCategory(p.id,e.target.value)}
+                  style={{background:C.panel,border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 8px",color:C.text,fontSize:".65rem"}}>
+                  {CATS.map(c=><option key={c} value={c}>{c}</option>)}
+                </select>
+                <button onClick={()=>deletePlayer(p.id)} style={{background:C.red+"22",border:`1px solid ${C.red}44`,color:C.red,borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:".65rem"}}>✕</button>
+              </div>
+            </Card>
+          ))}
+        </>
+      )}
+
+      {tab==="tournaments"&&(
+        <>
+          <STitle>Gerenciar Torneios</STitle>
+          {tournaments.map(t=>(
+            <Card key={t.id}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                <div>
+                  <div style={{fontWeight:700,color:C.text,fontSize:".82rem"}}>{t.name}</div>
+                  <div style={{display:"flex",gap:4,marginTop:3}}><Badge color={catColor(t.category)}>{t.category}</Badge><Badge color={genColor(t.gender)}>{t.gender}</Badge></div>
+                </div>
+                <button onClick={()=>deleteTournament(t.id)} style={{background:C.red+"22",border:`1px solid ${C.red}44`,color:C.red,borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:".65rem"}}>Excluir</button>
+              </div>
+              {t.status!=="finished"&&t.rounds.length>0&&(
+                <Btn small color={C.teal} onClick={()=>finalizeTournament(t)}>Finalizar & Distribuir Pts</Btn>
+              )}
+              {t.status==="finished"&&<Badge color={C.gold}>✓ Encerrado</Badge>}
+            </Card>
+          ))}
+        </>
+      )}
+
+      {tab==="points"&&(
+        <>
+          <STitle>Atribuir Pontos Manualmente</STitle>
+          {players.map(p=>(
+            <Card key={p.id}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <Avatar name={p.name} size={32}/>
+                <div style={{fontWeight:700,color:C.text,fontSize:".8rem"}}>{p.name}</div>
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {GENDERS.map(g=>(
+                  <div key={g} style={{display:"flex",gap:4,alignItems:"center"}}>
+                    <span style={{fontSize:".62rem",color:C.muted}}>{g.slice(0,4)}:</span>
+                    <span style={{fontWeight:700,color:genColor(g),fontSize:".72rem"}}>{p.points?.[g]||0}</span>
+                    {[10,25,50,100].map(pts=>(
+                      <button key={pts} onClick={()=>awardPoints(p.id,g,pts)}
+                        style={{background:C.gold+"22",border:`1px solid ${C.gold}44`,color:C.gold,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontSize:".58rem",fontWeight:700}}>+{pts}</button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── TOURNAMENT DETAIL ────────────────────────────────────────────────────────
+function TournamentDetail({tournament:t,players,onBack,onUpdate,me,addNotif}){
+  const [tab,setTab]=useState("info");
+  const [scoreEdit,setScoreEdit]=useState(null);
+  const [scores,setScores]=useState({s1:"",s2:""});
+  const getP=id=>players.find(p=>p.id===id);
+  const isReg=t.registrations.includes(me?.id);
+
+  function register(){
+    const upd={...t,registrations:[...t.registrations,me.id]};
+    onUpdate(upd);
+    addNotif(`${me.name} inscrito em "${t.name}"`);
+  }
+
+  function start(){
+    const rounds=generateBracket(t.registrations,t.type,t.courts);
+    const pairs=t.type==="doubles_draw"?generateDoublesDraw(t.registrations):[];
+    onUpdate({...t,status:"ongoing",rounds,pairs});
+    addNotif(`Torneio "${t.name}" iniciado! ${rounds[0].matches.length} jogos na rodada 1.`);
+  }
+
+  function saveScore(m,ri){
+    const s1=parseInt(scores.s1),s2=parseInt(scores.s2);
+    if(isNaN(s1)||isNaN(s2)||s1===s2) return;
+    const winner=s1>s2?m.p1:m.p2;
+    const loser=s1>s2?m.p2:m.p1;
+    let newRounds=t.rounds.map((r,i)=>i!==ri?r:{...r,matches:r.matches.map(x=>x.id!==m.id?x:{...x,score1:s1,score2:s2,winner})});
+    // Advance elimination bracket
+    if(t.type!=="super8"&&t.type!=="dance"&&t.type!=="ranked"){
+      const nr=newRounds[ri+1];
+      if(nr){
+        const mi=newRounds[ri].matches.findIndex(x=>x.id===m.id);
+        const slot=Math.floor(mi/2);
+        const isLeft=mi%2===0;
+        newRounds=newRounds.map((r,i)=>i!==ri+1?r:{...r,matches:r.matches.map((x,j)=>j!==slot?x:isLeft?{...x,p1:winner}:{...x,p2:winner})});
+      }
+    }
+    // Dance: advance rounds automatically when all matches of current round are done
+    if(t.type==="dance"){
+      const updated={...t,rounds:newRounds};
+      const allDone=newRounds[ri].matches.every(x=>x.winner!==null);
+      if(allDone){
+        const advanced=advanceDance(newRounds,t.courts,t.registrations);
+        onUpdate({...updated,rounds:advanced});
+        addNotif(`Rodada ${ri+1} concluída! Rotação de quadras executada.`);
+      } else { onUpdate(updated); }
+      setScoreEdit(null);setScores({s1:"",s2:""});return;
+    }
+    // Check if finished
+    let updated={...t,rounds:newRounds};
+    if(t.type!=="super8"&&t.type!=="ranked"){
+      const last=newRounds[newRounds.length-1];
+      if(last?.matches.length===1&&last.matches[0].winner)
+        updated={...updated,status:"finished",champion:last.matches[0].winner};
+    }
+    const wp=getP(winner),lp=getP(loser);
+    addNotif(`${wp?.name||winner} ${s1}×${s2} ${lp?.name||loser}`);
+    onUpdate(updated);
+    setScoreEdit(null);setScores({s1:"",s2:""});
+  }
+
+  const standings=getStandings(t);
+
+  return(
+    <div style={{padding:"0 14px 90px"}}>
+      <PageHeader title={t.name} onBack={onBack} backLabel="Torneios"
+        right={<button onClick={()=>exportPDF(t,players)} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",color:C.muted,cursor:"pointer",fontSize:".65rem"}}>📄 PDF</button>}/>
+      <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+        <Badge color={catColor(t.category)}>{t.category}</Badge>
+        <Badge color={genColor(t.gender)}>{t.gender}</Badge>
+        <Badge color={C.blue}>{T_TYPES.find(x=>x.key===t.type)?.label}</Badge>
+        <Badge color={t.status==="open"?C.teal:t.status==="ongoing"?C.orange:C.gold}>{t.status==="open"?"Aberto":t.status==="ongoing"?"Em Andamento":"Encerrado"}</Badge>
+      </div>
+
+      <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
+        {["info","jogos","classificação",...(t.pairs?.length?["duplas"]:[])].map(tb=>(
+          <Pill key={tb} active={tab===tb} onClick={()=>setTab(tb)}>{tb.charAt(0).toUpperCase()+tb.slice(1)}</Pill>
+        ))}
+      </div>
+
+      {tab==="info"&&(
+        <>
+          <Card>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {[["Data",fmtDate(t.date)],["Quadras",t.courts],["Tipo",T_TYPES.find(x=>x.key===t.type)?.label],["Inscritos",t.registrations.length]].map(([k,v])=>(
+                <div key={k}><div style={{fontSize:".58rem",color:C.muted,textTransform:"uppercase"}}>{k}</div><div style={{color:C.text,fontWeight:600,fontSize:".82rem"}}>{v}</div></div>
+              ))}
+            </div>
+          </Card>
+          {t.champion&&<Card style={{background:C.gold+"12",border:`1px solid ${C.gold}44`,textAlign:"center"}}>
+            <div style={{fontSize:"1.8rem"}}>🥇</div>
+            <div style={{color:C.gold,fontWeight:800}}>Campeão</div>
+            <div style={{color:C.text,fontSize:"1rem",fontWeight:700}}>{getP(t.champion)?.name}</div>
+          </Card>}
+          <STitle>Inscritos ({t.registrations.length})</STitle>
+          {t.registrations.map(id=>{const p=getP(id);if(!p)return null;return(
+            <Card key={id} style={{display:"flex",alignItems:"center",gap:10,padding:10}}>
+              <Avatar name={p.name} photo={p.photo} size={34}/>
+              <div style={{flex:1}}><div style={{fontWeight:600,color:C.text,fontSize:".82rem"}}>{p.name}</div><div style={{fontSize:".65rem",color:C.muted}}>{p.category} · {p.side}</div></div>
+              <Badge color={catColor(p.category)}>{p.category}</Badge>
+            </Card>
+          );})}
+          {t.status==="open"&&me&&!isReg&&<Btn full color={C.teal} onClick={register} style={{marginTop:8}}>Inscrever-me</Btn>}
+          {t.status==="open"&&t.registrations.length>=2&&<Btn full color={C.gold} onClick={start} style={{marginTop:8}}>⚡ Gerar Tabela & Iniciar</Btn>}
+        </>
+      )}
+
+      {tab==="jogos"&&(
+        <>
+          {t.type==="dance"&&<Card style={{background:C.orange+"12",border:`1px solid ${C.orange}44`,marginBottom:10}}>
+            <div style={{color:C.orange,fontWeight:700,fontSize:".78rem"}}>🕺 Dança das Quadras</div>
+            <div style={{color:C.muted,fontSize:".68rem",marginTop:4}}>Vencedores sobem de quadra, perdedores descem. A rotação é aplicada automaticamente ao fim de cada rodada completa.</div>
+          </Card>}
+          {t.rounds.length===0&&<div style={{color:C.muted,textAlign:"center",padding:30,fontSize:".8rem"}}>Torneio ainda não iniciado</div>}
+          {t.rounds.map((round,ri)=>(
+            <div key={ri}>
+              <STitle>Rodada {round.round}</STitle>
+              {round.matches.map(m=>{
+                const pa=getP(m.p1),pb=getP(m.p2),done=m.winner!==null;
+                return(
+                  <Card key={m.id} style={{border:`1px solid ${done?C.border:C.gold+"33"}`}}>
+                    <div style={{fontSize:".58rem",color:C.orange,marginBottom:6,fontWeight:700}}>QUADRA {m.court||"-"}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{flex:1,textAlign:"right"}}>
+                        <div style={{fontWeight:m.winner===m.p1?800:400,color:m.winner===m.p1?C.gold:C.text,fontSize:".82rem"}}>{pa?.name||m.p1}</div>
+                        {pa&&<div style={{fontSize:".6rem",color:C.muted}}>{pa.side}</div>}
+                      </div>
+                      <div style={{textAlign:"center",minWidth:72,flexShrink:0}}>
+                        {done?<div style={{fontWeight:900,color:C.text,fontSize:"1.05rem"}}>{m.score1}×{m.score2}</div>
+                          :<div style={{color:C.dim,fontSize:".65rem",fontWeight:700}}>vs</div>}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:m.winner===m.p2?800:400,color:m.winner===m.p2?C.gold:C.text,fontSize:".82rem"}}>{pb?.name||m.p2}</div>
+                        {pb&&<div style={{fontSize:".6rem",color:C.muted}}>{pb.side}</div>}
+                      </div>
+                    </div>
+                    {!done&&scoreEdit?.id===m.id?(
+                      <div style={{marginTop:10,display:"flex",gap:8,alignItems:"center",justifyContent:"center"}}>
+                        <input value={scores.s1} onChange={e=>setScores(s=>({...s,s1:e.target.value}))} placeholder="0"
+                          style={{width:52,background:C.panel,border:`1px solid ${C.gold}66`,borderRadius:6,padding:"7px 8px",color:C.text,textAlign:"center",fontSize:"1rem",outline:"none"}}/>
+                        <span style={{color:C.muted,fontWeight:700}}>×</span>
+                        <input value={scores.s2} onChange={e=>setScores(s=>({...s,s2:e.target.value}))} placeholder="0"
+                          style={{width:52,background:C.panel,border:`1px solid ${C.gold}66`,borderRadius:6,padding:"7px 8px",color:C.text,textAlign:"center",fontSize:"1rem",outline:"none"}}/>
+                        <Btn small color={C.teal} onClick={()=>saveScore(m,ri)}>✓ OK</Btn>
+                        <Btn small variant="outline" color={C.muted} onClick={()=>setScoreEdit(null)}>✕</Btn>
+                      </div>
+                    ):(!done&&<div style={{textAlign:"center",marginTop:8}}>
+                      <Btn small variant="outline" onClick={()=>{setScoreEdit(m);setScores({s1:"",s2:""});}}>Registrar Placar</Btn>
+                    </div>)}
+                  </Card>
+                );
+              })}
+            </div>
+          ))}
+        </>
+      )}
+
+      {tab==="classificação"&&(
+        <Card style={{padding:0,overflow:"hidden"}}>
+          <div style={{display:"grid",gridTemplateColumns:"28px 1fr 36px 36px 42px 48px"}}>
+            {["#","Atleta","V","D","Sld","Pts"].map(h=>(
+              <div key={h} style={{padding:"8px 6px",fontSize:".58rem",color:C.muted,borderBottom:`1px solid ${C.border}`,fontWeight:700,textAlign:h!=="Atleta"?"center":"left"}}>{h}</div>
+            ))}
+            {standings.map((s,i)=>{
+              const p=getP(s.id);
+              return[
+                <div key={s.id+"r"} style={{padding:"9px 6px",borderBottom:`1px solid ${C.dim}`,color:i===0?C.gold:i===1?"#C0C0C0":i===2?"#CD7F32":C.muted,fontWeight:800,fontSize:".72rem",textAlign:"center"}}>{i<3?["🥇","🥈","🥉"][i]:i+1}</div>,
+                <div key={s.id+"n"} style={{padding:"9px 6px",borderBottom:`1px solid ${C.dim}`,color:C.text,fontSize:".72rem"}}>{p?.name||s.id}</div>,
+                <div key={s.id+"w"} style={{padding:"9px 6px",borderBottom:`1px solid ${C.dim}`,color:C.teal,fontWeight:700,textAlign:"center",fontSize:".72rem"}}>{s.wins}</div>,
+                <div key={s.id+"l"} style={{padding:"9px 6px",borderBottom:`1px solid ${C.dim}`,color:C.red,textAlign:"center",fontSize:".72rem"}}>{s.losses}</div>,
+                <div key={s.id+"g"} style={{padding:"9px 6px",borderBottom:`1px solid ${C.dim}`,color:C.muted,textAlign:"center",fontSize:".72rem"}}>{s.gf-s.ga}</div>,
+                <div key={s.id+"p"} style={{padding:"9px 6px",borderBottom:`1px solid ${C.dim}`,color:C.gold,fontWeight:900,textAlign:"center",fontSize:".76rem"}}>{s.pts}</div>,
+              ];
+            })}
+          </div>
+        </Card>
+      )}
+
+      {tab==="duplas"&&t.pairs?.length>0&&(
+        <>
+          <STitle>Duplas Sorteadas</STitle>
+          {t.pairs.map((pair,i)=>(
+            <Card key={i} style={{display:"flex",gap:10,alignItems:"center"}}>
+              <div style={{color:C.gold,fontWeight:800,minWidth:22,fontSize:".8rem"}}>{i+1}</div>
+              {pair.map((id,pi)=>{const p=getP(id);return p?(
+                <div key={pi} style={{display:"flex",alignItems:"center",gap:8}}>
+                  {pi>0&&<span style={{color:C.muted}}>+</span>}
+                  <Avatar name={p.name} size={30}/>
+                  <span style={{color:C.text,fontSize:".78rem"}}>{p.name}</span>
+                </div>
+              ):null;})}
+            </Card>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── TOURNAMENTS SCREEN ───────────────────────────────────────────────────────
+function TournamentsScreen({players,tournaments,setTournaments,me,addNotif,onNav}){
+  const [tab,setTab]=useState("open");
+  const [showCreate,setShowCreate]=useState(false);
+  const [form,setForm]=useState({name:"",type:"super8",category:"Pro",gender:"Masculino",date:"",courts:"2"});
+
+  function create(){
+    if(!form.name||!form.date) return;
+    const t={id:uid(),...form,courts:Number(form.courts),status:"open",registrations:[],rounds:[],champion:null,pairs:[]};
+    setTournaments(prev=>[...prev,t]);
+    setShowCreate(false);
+    setForm({name:"",type:"super8",category:"Pro",gender:"Masculino",date:"",courts:"2"});
+    addNotif(`Torneio "${t.name}" criado!`);
+  }
+
+  const list=tournaments.filter(t=>tab==="open"?t.status==="open"||t.status==="ongoing":t.status==="finished");
+
+  return(
+    <div style={{padding:"0 14px 90px"}}>
+      <PageHeader title="🏆 Torneios" right={<Btn small onClick={()=>setShowCreate(true)}>+ Criar</Btn>}/>
+      <div style={{display:"flex",gap:6,marginBottom:14}}>
+        <Pill active={tab==="open"} onClick={()=>setTab("open")}>Abertos / Em Andamento</Pill>
+        <Pill active={tab==="finished"} color={C.teal} onClick={()=>setTab("finished")}>Encerrados</Pill>
+      </div>
+      {list.length===0&&<div style={{color:C.muted,textAlign:"center",padding:40,fontSize:".8rem"}}>Nenhum torneio aqui</div>}
+      {list.map(t=>(
+        <Card key={t.id} style={{cursor:"pointer"}} onClick={()=>onNav("tournament",t.id)}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,color:C.text,marginBottom:4,fontSize:".88rem"}}>{t.name}</div>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:5}}>
+                <Badge color={catColor(t.category)}>{t.category}</Badge>
+                <Badge color={genColor(t.gender)}>{t.gender}</Badge>
+                <Badge color={C.blue}>{T_TYPES.find(x=>x.key===t.type)?.label}</Badge>
+              </div>
+              <div style={{fontSize:".65rem",color:C.muted}}>{fmtDate(t.date)} · {t.courts} quadras · {t.registrations.length} inscritos</div>
+            </div>
+            <Badge color={t.status==="open"?C.teal:t.status==="ongoing"?C.orange:C.gold}>
+              {t.status==="open"?"ABERTO":t.status==="ongoing"?"ATIVO":"FIM"}
+            </Badge>
+          </div>
+          {t.champion&&<div style={{marginTop:8,color:C.gold,fontSize:".7rem"}}>🥇 {players.find(p=>p.id===t.champion)?.name}</div>}
+        </Card>
+      ))}
+      {showCreate&&(
+        <div style={{position:"fixed",inset:0,background:"#000b",zIndex:200,display:"flex",alignItems:"flex-end"}}>
+          <div style={{background:C.panel,borderRadius:"16px 16px 0 0",padding:20,width:"100%",boxSizing:"border-box",maxHeight:"88vh",overflowY:"auto"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{fontWeight:800,color:C.text,fontSize:"1rem"}}>Novo Torneio</div>
+              <button onClick={()=>setShowCreate(false)} style={{background:"none",border:"none",color:C.muted,fontSize:"1.2rem",cursor:"pointer"}}>✕</button>
+            </div>
+            <Input label="Nome do torneio" value={form.name} onChange={v=>setForm(f=>({...f,name:v}))} placeholder="Ex: Open Lorena 2026"/>
+            <Input label="Data" type="date" value={form.date} onChange={v=>setForm(f=>({...f,date:v}))}/>
+            <Select label="Tipo de torneio" value={form.type} onChange={v=>setForm(f=>({...f,type:v}))} options={T_TYPES.map(t=>({value:t.key,label:t.label}))}/>
+            <Select label="Categoria" value={form.category} onChange={v=>setForm(f=>({...f,category:v}))} options={CATS}/>
+            <Select label="Gênero" value={form.gender} onChange={v=>setForm(f=>({...f,gender:v}))} options={GENDERS}/>
+            <Select label="Quadras disponíveis" value={form.courts} onChange={v=>setForm(f=>({...f,courts:v}))} options={["1","2","3","4","5","6","7","8","10","12"]}/>
+            {form.type==="dance"&&<Card style={{background:C.orange+"10",border:`1px solid ${C.orange}33`}}>
+              <div style={{color:C.orange,fontWeight:700,fontSize:".72rem"}}>🕺 Dança das Quadras</div>
+              <div style={{color:C.muted,fontSize:".65rem",marginTop:4}}>Atletas são distribuídos pelas quadras e rotacionam após cada rodada: vencedores sobem, perdedores descem.</div>
+            </Card>}
+            {(form.type==="doubles_draw"||form.type==="doubles_fixed")&&<Card style={{background:C.blue+"10",border:`1px solid ${C.blue}33`}}>
+              <div style={{color:C.blue,fontWeight:700,fontSize:".72rem"}}>👥 {form.type==="doubles_draw"?"Duplas Sorteadas":"Duplas Fixas"}</div>
+              <div style={{color:C.muted,fontSize:".65rem",marginTop:4}}>{form.type==="doubles_draw"?"O sorteio das duplas será realizado automaticamente ao iniciar o torneio.":"Inscreva os atletas e forme as duplas manualmente."}</div>
+            </Card>}
+            <div style={{display:"flex",gap:8,marginTop:8}}>
+              <Btn full onClick={create} disabled={!form.name||!form.date}>✓ Criar Torneio</Btn>
+              <Btn full variant="outline" color={C.muted} onClick={()=>setShowCreate(false)}>Cancelar</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── RANKING SCREEN ───────────────────────────────────────────────────────────
+function RankingScreen({players,onNav}){
+  const [gender,setGender]=useState("Masculino");
+  const [cat,setCat]=useState("all");
+  const ranked=useMemo(()=>
+    [...players].filter(p=>gender==="Misto"?true:p.gender===gender||p.gender==="Misto")
+    .filter(p=>cat==="all"||p.category===cat)
+    .sort((a,b)=>(b.points?.[gender]||0)-(a.points?.[gender]||0))
+  ,[players,gender,cat]);
+
+  return(
+    <div style={{padding:"0 14px 90px"}}>
+      <PageHeader title="📊 Ranking"/>
+      <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+        {GENDERS.map(g=><Pill key={g} active={gender===g} color={genColor(g)} onClick={()=>setGender(g)}>{g}</Pill>)}
+      </div>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        <Pill active={cat==="all"} color={C.muted} onClick={()=>setCat("all")}>Todos</Pill>
+        {CATS.map(c=><Pill key={c} active={cat===c} color={catColor(c)} onClick={()=>setCat(c)}>{c}</Pill>)}
+      </div>
+      <Card style={{padding:0,overflow:"hidden"}}>
+        {ranked.length===0&&<div style={{padding:20,color:C.muted,textAlign:"center",fontSize:".8rem"}}>Nenhum atleta</div>}
+        {ranked.map((p,i)=>(
+          <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 12px",borderBottom:i<ranked.length-1?`1px solid ${C.dim}`:"none",background:i===0?C.gold+"08":"transparent",cursor:"pointer"}}
+            onClick={()=>onNav("player",p.id)}>
+            <div style={{minWidth:28,textAlign:"center",fontWeight:800,color:i===0?C.gold:i===1?"#C0C0C0":i===2?"#CD7F32":C.muted,fontSize:i<3?".85rem":".72rem"}}>
+              {i<3?["🥇","🥈","🥉"][i]:i+1}
+            </div>
+            <Avatar name={p.name} photo={p.photo} size={36} color={genColor(p.gender)}/>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,color:C.text,fontSize:".82rem"}}>{p.name}</div>
+              <div style={{display:"flex",gap:4,marginTop:2}}><Badge color={catColor(p.category)}>{p.category}</Badge></div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontWeight:800,color:C.gold,fontSize:".9rem"}}>{p.points?.[gender]||0}</div>
+              <div style={{fontSize:".58rem",color:C.muted}}>pts</div>
+            </div>
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+// ─── PROFILE SCREEN ───────────────────────────────────────────────────────────
+function ProfileScreen({player,onSave,isMe=true,onBack,players}){
+  const [edit,setEdit]=useState(false);
+  const [form,setForm]=useState({...player});
+  const fileRef=useRef();
+  useEffect(()=>{setForm({...player});},[player]);
+
+  if(!player) return<div style={{padding:30,color:C.muted,textAlign:"center"}}>Perfil não encontrado</div>;
+  const totalPts=Object.values(player.points||{}).reduce((a,b)=>a+b,0);
+
+  return(
+    <div style={{padding:"0 14px 90px"}}>
+      <PageHeader title="👤 Perfil" onBack={onBack} backLabel="Atletas"
+        right={isMe&&<button onClick={()=>edit?onSave(form)&&setEdit(false):setEdit(true)}
+          style={{background:edit?C.teal:C.gold,border:"none",borderRadius:8,padding:"6px 14px",color:"#000",fontWeight:700,fontSize:".68rem",cursor:"pointer"}}
+          onClick={()=>{if(edit){onSave(form);}setEdit(e=>!e);}}>
+          {edit?"✓ Salvar":"✏️ Editar"}
+        </button>}/>
+      <div style={{background:`linear-gradient(135deg,${C.gold}18,${C.card})`,borderRadius:12,padding:16,marginBottom:14,border:`1px solid ${C.gold}22`}}>
+        <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
+          <div style={{position:"relative",cursor:edit?"pointer":"default"}} onClick={()=>edit&&fileRef.current?.click()}>
+            <Avatar name={form.name} photo={form.photo} size={76}/>
+            {edit&&<div style={{position:"absolute",bottom:0,right:0,background:C.gold,borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:".65rem"}}>📷</div>}
+            <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f) return;const r=new FileReader();r.onload=ev=>setForm(x=>({...x,photo:ev.target.result}));r.readAsDataURL(f);}}/>
+          </div>
+          <div style={{flex:1}}>
+            {edit?<Input value={form.name||""} onChange={v=>setForm(f=>({...f,name:v}))} placeholder="Nome"/>
+              :<div style={{fontWeight:900,color:C.text,fontSize:"1.1rem"}}>{player.name}</div>}
+            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:4}}>
+              <Badge color={catColor(player.category)}>{player.category}</Badge>
+              <Badge color={genColor(player.gender)}>{player.gender}</Badge>
+            </div>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:14}}>
+          {[["Total",totalPts,C.gold],["Masc.",player.points?.Masculino||0,C.blue],["Fem.",player.points?.Feminino||0,C.red]].map(([l,v,c])=>(
+            <div key={l} style={{textAlign:"center"}}>
+              <div style={{fontWeight:800,color:c,fontSize:"1.05rem"}}>{v}</div>
+              <div style={{fontSize:".58rem",color:C.muted}}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <Card>
+        <STitle>Dados Pessoais</STitle>
+        {edit?(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <Input label="Idade" type="number" value={form.age||""} onChange={v=>setForm(f=>({...f,age:v}))}/>
+            <Input label="Altura (cm)" type="number" value={form.height||""} onChange={v=>setForm(f=>({...f,height:v}))}/>
+            <Input label="Peso (kg)" type="number" value={form.weight||""} onChange={v=>setForm(f=>({...f,weight:v}))}/>
+            <Select label="Gênero" value={form.gender||"Masculino"} onChange={v=>setForm(f=>({...f,gender:v}))} options={GENDERS}/>
+          </div>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {[["Idade",`${player.age} anos`],["Altura",`${player.height} cm`],["Peso",`${player.weight} kg`],["Gênero",player.gender]].map(([k,v])=>(
+              <div key={k}><div style={{fontSize:".58rem",color:C.muted}}>{k}</div><div style={{color:C.text,fontWeight:600,fontSize:".82rem"}}>{v}</div></div>
+            ))}
+          </div>
+        )}
+      </Card>
+      <Card>
+        <STitle>Estilo de Jogo</STitle>
+        {edit?(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <Select label="Lado preferido" value={form.side||"Direita"} onChange={v=>setForm(f=>({...f,side:v}))} options={SIDES}/>
+            <Select label="Membro dominante" value={form.dominant||"Destro"} onChange={v=>setForm(f=>({...f,dominant:v}))} options={DOMINANTS}/>
+            <Select label="Categoria" value={form.category||"B"} onChange={v=>setForm(f=>({...f,category:v}))} options={CATS}/>
+            <Input label="Raquete" value={form.racket||""} onChange={v=>setForm(f=>({...f,racket:v}))}/>
+          </div>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {[["Lado",player.side],["Dominante",player.dominant],["Categoria",player.category],["Raquete",player.racket||"—"]].map(([k,v])=>(
+              <div key={k}><div style={{fontSize:".58rem",color:C.muted}}>{k}</div><div style={{color:C.text,fontWeight:600,fontSize:".82rem"}}>{v}</div></div>
+            ))}
+          </div>
+        )}
+      </Card>
+      <Card>
+        <STitle>Ranking por Modalidade</STitle>
+        {GENDERS.map(g=>(
+          <div key={g} style={{marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+              <span style={{fontSize:".7rem",color:C.muted}}>{g}</span>
+              <span style={{fontSize:".7rem",color:genColor(g),fontWeight:700}}>{player.points?.[g]||0} pts</span>
+            </div>
+            <div style={{height:5,background:C.dim,borderRadius:3}}>
+              <div style={{height:"100%",background:genColor(g),borderRadius:3,width:`${Math.min(100,((player.points?.[g]||0)/1500)*100)}%`,transition:"width .4s"}}/>
+            </div>
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+// ─── PLAYERS LIST ─────────────────────────────────────────────────────────────
+function PlayersScreen({players,setPlayers,me,setMe,onNav}){
+  const [showAdd,setShowAdd]=useState(false);
+  const [search,setSearch]=useState("");
+  const [filterCat,setFilterCat]=useState("all");
+  const [form,setForm]=useState({name:"",age:"",height:"",weight:"",side:"Direita",dominant:"Destro",racket:"",category:"B",gender:"Masculino",photo:""});
+
+  function add(){
+    const p={id:uid(),...form,age:Number(form.age),height:Number(form.height),weight:Number(form.weight),points:{Masculino:0,Feminino:0,Misto:0}};
+    setPlayers(prev=>[...prev,p]);
+    if(!me) setMe(p);
+    setShowAdd(false);
+    setForm({name:"",age:"",height:"",weight:"",side:"Direita",dominant:"Destro",racket:"",category:"B",gender:"Masculino",photo:""});
+  }
+
+  const filtered=players.filter(p=>{
+    const matchS=p.name.toLowerCase().includes(search.toLowerCase());
+    const matchC=filterCat==="all"||p.category===filterCat;
+    return matchS&&matchC;
+  });
+
+  return(
+    <div style={{padding:"0 14px 90px"}}>
+      <PageHeader title="👥 Atletas" right={<Btn small onClick={()=>setShowAdd(true)}>+ Novo</Btn>}/>
+      <Input value={search} onChange={setSearch} placeholder="🔍 Buscar atleta..." style={{marginBottom:10}}/>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        <Pill active={filterCat==="all"} color={C.muted} onClick={()=>setFilterCat("all")}>Todos</Pill>
+        {CATS.map(c=><Pill key={c} active={filterCat===c} color={catColor(c)} onClick={()=>setFilterCat(c)}>{c}</Pill>)}
+      </div>
+      {filtered.map(p=>(
+        <Card key={p.id} style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={()=>onNav("player",p.id)}>
+          <Avatar name={p.name} photo={p.photo} size={44} color={genColor(p.gender)}/>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <span style={{fontWeight:700,color:C.text,fontSize:".85rem"}}>{p.name}</span>
+              {p.id===me?.id&&<Badge color={C.teal}>Você</Badge>}
+            </div>
+            <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
+              <Badge color={catColor(p.category)}>{p.category}</Badge>
+              <Badge color={genColor(p.gender)}>{p.gender}</Badge>
+              {p.racket&&<span style={{fontSize:".6rem",color:C.muted}}>{p.racket}</span>}
+            </div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontWeight:800,color:C.gold,fontSize:".85rem"}}>{Object.values(p.points||{}).reduce((a,b)=>a+b,0)}</div>
+            <div style={{fontSize:".58rem",color:C.muted}}>pts</div>
+          </div>
+        </Card>
+      ))}
+      {showAdd&&(
+        <div style={{position:"fixed",inset:0,background:"#000b",zIndex:200,display:"flex",alignItems:"flex-end"}}>
+          <div style={{background:C.panel,borderRadius:"16px 16px 0 0",padding:20,width:"100%",boxSizing:"border-box",maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div style={{fontWeight:800,color:C.text,fontSize:"1rem"}}>Novo Atleta</div>
+              <button onClick={()=>setShowAdd(false)} style={{background:"none",border:"none",color:C.muted,fontSize:"1.2rem",cursor:"pointer"}}>✕</button>
+            </div>
+            <Input label="Nome completo" value={form.name} onChange={v=>setForm(f=>({...f,name:v}))}/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <Input label="Idade" type="number" value={form.age} onChange={v=>setForm(f=>({...f,age:v}))}/>
+              <Input label="Altura (cm)" type="number" value={form.height} onChange={v=>setForm(f=>({...f,height:v}))}/>
+              <Input label="Peso (kg)" type="number" value={form.weight} onChange={v=>setForm(f=>({...f,weight:v}))}/>
+              <Select label="Gênero" value={form.gender} onChange={v=>setForm(f=>({...f,gender:v}))} options={GENDERS}/>
+              <Select label="Lado preferido" value={form.side} onChange={v=>setForm(f=>({...f,side:v}))} options={SIDES}/>
+              <Select label="Membro dominante" value={form.dominant} onChange={v=>setForm(f=>({...f,dominant:v}))} options={DOMINANTS}/>
+              <Select label="Categoria" value={form.category} onChange={v=>setForm(f=>({...f,category:v}))} options={CATS}/>
+            </div>
+            <Input label="Modelo de raquete" value={form.racket} onChange={v=>setForm(f=>({...f,racket:v}))}/>
+            {!me&&<div style={{background:C.teal+"14",border:`1px solid ${C.teal}44`,borderRadius:8,padding:10,marginBottom:10,fontSize:".72rem",color:C.teal}}>Primeiro atleta será seu perfil local.</div>}
+            <div style={{display:"flex",gap:8,marginTop:8}}>
+              <Btn full onClick={add} disabled={!form.name}>Cadastrar</Btn>
+              <Btn full variant="outline" color={C.muted} onClick={()=>setShowAdd(false)}>Cancelar</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CHAT SCREEN ──────────────────────────────────────────────────────────────
+function ChatScreen({players,messages,setMessages,me}){
+  const [conv,setConv]=useState("general");
+  const [text,setText]=useState("");
+  const [showConvs,setShowConvs]=useState(true);
+  const msgEnd=useRef(null);
+  useEffect(()=>{msgEnd.current?.scrollIntoView({behavior:"smooth"});},[messages,conv]);
+  const getP=id=>players.find(p=>p.id===id);
+
+  const convList=[
+    {id:"general",name:"💬 Geral",icon:"🌐"},
+    ...players.filter(p=>p.id!==me?.id).map(p=>({id:`dm_${p.id}`,name:p.name,dm:true,otherId:p.id})),
+  ];
+
+  function send(){
+    if(!text.trim()||!me) return;
+    const msg={id:uid(),from:me.id,text:text.trim(),ts:Date.now()};
+    setMessages(prev=>({...prev,[conv]:[...(prev[conv]||[]),msg]}));
+    setText("");
+  }
+
+  const convMsgs=messages[conv]||[];
+  const activeConv=convList.find(c=>c.id===conv);
+  const otherPlayer=activeConv?.dm?getP(activeConv.otherId):null;
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 108px)"}}>
+      {/* Conv header */}
+      <div style={{padding:"10px 14px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:10,background:C.panel}}>
+        <button onClick={()=>setShowConvs(true)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:".7rem",padding:"4px 8px",borderRadius:6,border:`1px solid ${C.border}`}}>☰</button>
+        {otherPlayer?<Avatar name={otherPlayer.name} photo={otherPlayer.photo} size={28}/>:null}
+        <span style={{fontWeight:700,color:C.text,fontSize:".82rem"}}>{activeConv?.name||"Chat"}</span>
+      </div>
+      {/* Overlay conv list */}
+      {showConvs&&(
+        <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,zIndex:50,background:C.bg,padding:"0 14px 80px",overflowY:"auto"}}>
+          <PageHeader title="💬 Chat" right={null}/>
+          <STitle>Conversas</STitle>
+          {convList.map(c=>{
+            const op=c.dm?getP(c.otherId):null;
+            const unread=(messages[c.id]||[]).filter(m=>m.from!==me?.id).length;
+            return(
+              <Card key={c.id} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>{setConv(c.id);setShowConvs(false);}}>
+                {op?<Avatar name={op.name} photo={op.photo} size={40} color={genColor(op.gender)}/>
+                  :<div style={{width:40,height:40,borderRadius:"50%",background:C.gold+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.1rem"}}>🌐</div>}
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,color:C.text,fontSize:".82rem"}}>{c.name}</div>
+                  <div style={{fontSize:".65rem",color:C.muted}}>{(messages[c.id]||[]).length} mensagens</div>
+                </div>
+                {unread>0&&<div style={{background:C.gold,color:"#000",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:".62rem"}}>{unread}</div>}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      {/* Messages */}
+      <div style={{flex:1,overflowY:"auto",padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>
+        {convMsgs.length===0&&<div style={{color:C.muted,textAlign:"center",marginTop:40,fontSize:".78rem"}}>Sem mensagens ainda. Diga olá! 👋</div>}
+        {convMsgs.map(m=>{
+          const isMe=m.from===me?.id;
+          const sender=getP(m.from);
+          return(
+            <div key={m.id} style={{display:"flex",flexDirection:isMe?"row-reverse":"row",gap:8,alignItems:"flex-end"}}>
+              {!isMe&&<Avatar name={sender?.name} size={26}/>}
+              <div style={{maxWidth:"74%",background:isMe?C.gold+"1A":C.card,border:`1px solid ${isMe?C.gold+"44":C.border}`,borderRadius:isMe?"12px 12px 2px 12px":"12px 12px 12px 2px",padding:"8px 12px"}}>
+                {!isMe&&<div style={{fontSize:".58rem",color:C.gold,fontWeight:700,marginBottom:2}}>{sender?.name}</div>}
+                <div style={{color:C.text,fontSize:".8rem",lineHeight:1.4}}>{m.text}</div>
+                <div style={{fontSize:".55rem",color:C.muted,marginTop:2,textAlign:"right"}}>{new Date(m.ts).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</div>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={msgEnd}/>
+      </div>
+      {/* Input */}
+      <div style={{padding:"8px 14px",borderTop:`1px solid ${C.border}`,display:"flex",gap:8,background:C.panel}}>
+        <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()}
+          placeholder="Mensagem..." style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:20,padding:"9px 14px",color:C.text,fontSize:".8rem",outline:"none"}}/>
+        <button onClick={send} style={{background:C.gold,border:"none",borderRadius:"50%",width:38,height:38,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1rem",flexShrink:0}}>→</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ROOT APP ─────────────────────────────────────────────────────────────────
+function App(){
+  const [tab,setTab]=useState("tournaments");
+  const [players,setPlayers]=useState(SEED_PLAYERS);
+  const [tournaments,setTournaments]=useState(SEED_TOURNAMENTS);
+  const [messages,setMessages]=useState(SEED_MSGS);
+  const [me,setMe]=useState(SEED_PLAYERS[0]);
+  const [loaded,setLoaded]=useState(false);
+  const [notifs,setNotifs]=useState([]);
+  const [navStack,setNavStack]=useState([]); // [{screen,id}]
+
+  useEffect(()=>{
+    (async()=>{
+      const p=await load("bl6_players"),t=await load("bl6_tournaments"),m=await load("bl6_messages"),mid=await load("bl6_me");
+      if(p) setPlayers(p);if(t) setTournaments(t);if(m) setMessages(m);
+      const pls=p||SEED_PLAYERS;
+      if(mid) setMe(pls.find(x=>x.id===mid.id)||pls[0]);
+      setLoaded(true);
+    })();
+  },[]);
+
+  useEffect(()=>{if(loaded){save("bl6_players",players);save("bl6_tournaments",tournaments);save("bl6_messages",messages);}},[players,tournaments,messages,loaded]);
+  useEffect(()=>{if(me&&loaded) save("bl6_me",{id:me.id});},[me,loaded]);
+
+  const addNotif=useCallback(text=>{setNotifs(prev=>[...prev,{id:uid(),text,ts:Date.now(),read:false}]);},[]);
+
+  function updatePlayers(updated){
+    setPlayers(updated);
+    if(me){const f=updated.find(p=>p.id===me.id);if(f) setMe(f);}
+  }
+
+  function onNav(screen,id){setNavStack(s=>[...s,{screen,id}]);}
+  function onBack(){setNavStack(s=>s.slice(0,-1));}
+
+  const currentNav=navStack[navStack.length-1];
+
+  // Resolve current view
+  let mainContent=null;
+  if(currentNav){
+    if(currentNav.screen==="tournament"){
+      const t=tournaments.find(x=>x.id===currentNav.id);
+      if(t) mainContent=<TournamentDetail tournament={t} players={players} me={me} onBack={onBack} addNotif={addNotif}
+        onUpdate={upd=>setTournaments(prev=>prev.map(x=>x.id===upd.id?upd:x))}/>;
+    }
+    if(currentNav.screen==="player"){
+      const p=players.find(x=>x.id===currentNav.id);
+      if(p) mainContent=<ProfileScreen player={players.find(x=>x.id===currentNav.id)} isMe={p.id===me?.id}
+        onBack={onBack} players={players}
+        onSave={upd=>{updatePlayers(players.map(x=>x.id===upd.id?upd:x));onBack();}}/>;
+    }
+    if(currentNav.screen==="admin") mainContent=<AdminScreen players={players} setPlayers={updatePlayers} tournaments={tournaments} setTournaments={setTournaments} onBack={onBack} addNotif={addNotif}/>;
+  }
+
+  const TABS=[{key:"tournaments",icon:"🏆",label:"Torneios"},{key:"ranking",icon:"📊",label:"Ranking"},{key:"players",icon:"👥",label:"Atletas"},{key:"chat",icon:"💬",label:"Chat"}];
+
+  return(
+    <div style={{background:C.bg,minHeight:"100vh",color:C.text,fontFamily:"system-ui,-apple-system,sans-serif",maxWidth:480,margin:"0 auto",position:"relative"}}>
+      {/* Header */}
+      <div style={{position:"sticky",top:0,background:C.bg+"ee",backdropFilter:"blur(10px)",borderBottom:`1px solid ${C.border}`,zIndex:100,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontWeight:900,fontSize:"1rem",letterSpacing:-.5,cursor:"pointer"}} onClick={()=>{setNavStack([]);setTab("tournaments");}}>
+          <span style={{color:C.text}}>Beach</span><span style={{color:C.gold}}>Line</span><span style={{color:C.gold}}>™</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <NotifBell notifs={notifs} onClear={()=>setNotifs([])}/>
+          <button onClick={()=>onNav("admin")} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,padding:"5px 10px",color:C.muted,cursor:"pointer",fontSize:".65rem"}}>⚙️</button>
+          {me&&<div style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}} onClick={()=>onNav("player",me.id)}>
+            <span style={{fontSize:".65rem",color:C.muted}}>{me.name.split(" ")[0]}</span>
+            <Avatar name={me.name} photo={me.photo} size={28}/>
+          </div>}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{position:"relative"}}>
+        {mainContent||(<>
+          {tab==="tournaments"&&<TournamentsScreen players={players} tournaments={tournaments} setTournaments={setTournaments} me={me} addNotif={addNotif} onNav={onNav}/>}
+          {tab==="ranking"&&<RankingScreen players={players} onNav={onNav}/>}
+          {tab==="players"&&<PlayersScreen players={players} setPlayers={updatePlayers} me={me} setMe={p=>{setMe(p);}} onNav={onNav}/>}
+          {tab==="chat"&&<ChatScreen players={players} messages={messages} setMessages={setMessages} me={me}/>}
+        </>)}
+      </div>
+
+      {/* Bottom Nav */}
+      {!currentNav&&(
+        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.panel+"f0",backdropFilter:"blur(12px)",borderTop:`1px solid ${C.border}`,display:"flex",zIndex:100}}>
+          {TABS.map(t=>(
+            <button key={t.key} onClick={()=>setTab(t.key)}
+              style={{flex:1,padding:"10px 0",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+              <span style={{fontSize:tab===t.key?"1.3rem":"1.05rem",transition:"all .15s"}}>{t.icon}</span>
+              <span style={{fontSize:".54rem",color:tab===t.key?C.gold:C.muted,fontWeight:tab===t.key?700:400}}>{t.label}</span>
+              {tab===t.key&&<div style={{width:18,height:2,background:C.gold,borderRadius:1}}/>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App));
+</script>
+</body>
+</html>
